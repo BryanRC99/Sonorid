@@ -1,18 +1,18 @@
-// app/src/main/java/com/example/sonorid/ui/library/LibraryViewModel.kt
-package com.example.sonorid.ui.library
+// app/src/main/java/com/example/sonorid/ui/artist/ArtistDetailViewModel.kt
+package com.example.sonorid.ui.artist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.sonorid.data.repository.FavoritesRepository
 import com.example.sonorid.domain.model.Song
 import com.example.sonorid.domain.repository.MusicRepository
+import com.example.sonorid.data.repository.FavoritesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class LibraryViewModel @Inject constructor(
+class ArtistDetailViewModel @Inject constructor(
     private val repository: MusicRepository,
     private val favoritesRepository: FavoritesRepository
 ) : ViewModel() {
@@ -27,10 +27,10 @@ class LibraryViewModel @Inject constructor(
         .map { list -> list.map { it.songId }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
-    fun loadSongs() {
+    fun load(artistName: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            _songs.value = repository.getAllSongs()
+            _songs.value = repository.getAllSongs().filter { it.artist == artistName }
             _isLoading.value = false
         }
     }

@@ -1,3 +1,4 @@
+// MainActivity.kt
 package com.example.sonorid
 
 import android.Manifest
@@ -13,7 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import com.example.sonorid.ui.library.LibraryScreen
+import com.example.sonorid.ui.main.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -42,7 +43,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (hasPermission) {
-                        LibraryScreen()
+                        MainScreen()
                     } else {
                         Text("Se necesita permiso para leer la música del dispositivo")
                     }
