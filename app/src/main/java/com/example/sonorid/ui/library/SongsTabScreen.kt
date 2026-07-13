@@ -1,24 +1,39 @@
-// app/src/main/java/com/example/sonorid/ui/library/SongsTabScreen.kt
 package com.example.sonorid.ui.library
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed // 👈 Cambiado por itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.ui.playlists.AddToPlaylistSheet
+import com.example.sonorid.ui.theme.SonoridSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,31 +41,36 @@ fun SongsTabScreen(
     onOpenFolders: () -> Unit,
     onOpenSearch: () -> Unit,
     onSongClick: (List<Song>, Int) -> Unit,
-    modifier: Modifier = Modifier, // 👈 Agregado por buenas prácticas
+    modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val songs by viewModel.songs.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-
-    var sheetSongId by remember { mutableStateOf<Long?>(null) }
     val favoriteIds by viewModel.favoriteIds.collectAsState()
+    var sheetSongId by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadSongs()
-    }
+    LaunchedEffect(Unit) { viewModel.loadSongs() }
 
     sheetSongId?.let { songId ->
-        com.example.sonorid.ui.playlists.AddToPlaylistSheet(
-            songId = songId,
-            onDismiss = { sheetSongId = null }
-        )
+        AddToPlaylistSheet(songId = songId, onDismiss = { sheetSongId = null })
     }
 
     Scaffold(
-        modifier = modifier, // 👈 Se aplica el modifier aquí
+        modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Sonorid") },
+                title = {
+                    Column {
+                        Text("Tu música", style = MaterialTheme.typography.headlineMedium)
+                        if (songs.isNotEmpty()) {
+                            Text(
+                                text = "${songs.size} canciones",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Buscar")
@@ -67,25 +87,23 @@ fun SongsTabScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (songs.isEmpty()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            when {
+                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                songs.isEmpty() -> EmptyLibrary(onOpenFolders, Modifier.align(Alignment.Center))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = SonoridSpacing.Lg,
+                        end = SonoridSpacing.Lg,
+                        bottom = SonoridSpacing.Xxl
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(SonoridSpacing.Xs)
                 ) {
-                    Text("No se encontraron canciones")
-                    TextButton(onClick = onOpenFolders) {
-                        Text("Elegir carpetas")
-                    }
-                }
-            } else {
-                // 🚀 OPTIMIZACIÓN: LazyColumn usando itemsIndexed
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     itemsIndexed(
                         items = songs,
-                        key = { _, song -> song.id } // Usamos el ID único de la canción como clave
-                    ) { index, song -> // El índice ya viene calculado directamente de forma eficiente
+                        key = { _, song -> song.id },
+                        contentType = { _, _ -> "song" }
+                    ) { index, song ->
                         SongRow(
                             song = song,
                             isFavorite = song.id in favoriteIds,
@@ -100,3 +118,10 @@ fun SongsTabScreen(
     }
 }
 
+@Composable
+private fun EmptyLibrary(onOpenFolders: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("No se encontraron canciones", style = MaterialTheme.typography.titleMedium)
+        TextButton(onClick = onOpenFolders) { Text("Elegir carpetas") }
+    }
+}

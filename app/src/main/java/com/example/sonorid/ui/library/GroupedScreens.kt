@@ -118,10 +118,14 @@ fun ArtistsScreen(
     val songs by viewModel.songs.collectAsState()
     val infoMap by infoViewModel.infoMap.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadSongs() }
-    val artists = songs.groupBy { it.artist }
+    val artists = remember(songs) {
+        songs.groupBy { it.artist }
+            .toList()
+            .sortedBy { (artist, _) -> artist.lowercase() }
+    }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(artists.entries.toList()) { (artist, tracks) ->
+        items(artists, key = { (artist, _) -> artist }) { (artist, tracks) ->
             LaunchedEffect(artist) { infoViewModel.request(artist) }
             val imageUrl = infoMap[artist]?.imageUrl
 

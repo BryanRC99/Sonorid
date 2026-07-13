@@ -10,6 +10,8 @@ import com.example.sonorid.domain.model.MusicFolder
 import com.example.sonorid.domain.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -19,6 +21,9 @@ import javax.inject.Singleton
 class MediaStoreDataSource @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    private val genreCacheMutex = Mutex()
+    private var genreCache: Map<Long, String>? = null
+
     private val pathColumn: String
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.RELATIVE_PATH
@@ -71,6 +76,12 @@ class MediaStoreDataSource @Inject constructor(
         map
     }
 
+    /** Los géneros cambian muy poco y construirlos implica una consulta por cada género.
+     * Mantenerlos durante la sesión evita repetir esa cascada al cambiar de pestaña. */
+    private suspend fun getGenreMap(): Map<Long, String> = genreCacheMutex.withLock {
+        genreCache ?: buildGenreMap().also { genreCache = it }
+    }
+
     suspend fun getAllFolders(): List<MusicFolder> = withContext(Dispatchers.IO) {
         val counts = mutableMapOf<String, Int>()
         val projection = arrayOf(pathColumn)
@@ -99,7 +110,7 @@ class MediaStoreDataSource @Inject constructor(
 
     suspend fun getAllSongs(selectedFolders: Set<String>): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
-        val genreMap = buildGenreMap()
+        val genreMap = getGenreMap()
 
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,

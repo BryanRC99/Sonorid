@@ -34,8 +34,8 @@ fun MiniPlayer(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable { onExpand() }
     ) {
         // 🛠️ CORREGIDO: Ahora calcula el progreso usando progressState en lugar de state
@@ -45,22 +45,29 @@ fun MiniPlayer(
 
         LinearProgressIndicator(
             progress = { progress },
-            modifier = Modifier.fillMaxWidth().height(2.dp)
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.fillMaxWidth().height(3.dp)
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
                 model = song.albumArtUri,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp))
+                modifier = Modifier.size(46.dp).clip(RoundedCornerShape(12.dp))
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(song.title, maxLines = 1, style = MaterialTheme.typography.bodyMedium)
-                Text(song.artist, maxLines = 1, style = MaterialTheme.typography.bodySmall)
+                Text(song.title, maxLines = 1, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    song.artist,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             IconButton(onClick = onTogglePlayPause) {
                 Icon(

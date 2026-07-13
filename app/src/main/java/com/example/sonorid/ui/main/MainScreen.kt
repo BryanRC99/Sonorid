@@ -40,9 +40,6 @@ fun MainScreen(
     // 1. Recolectamos el estado de los metadatos (Canción, si está reproduciendo, etc.)
     val playbackState by playerViewModel.metaState.collectAsState()
 
-    // 🚀 SOLUCIÓN: Añade esta línea para recolectar el progreso que te pide el MiniPlayer y el ExpandedPlayer
-    val playerProgress by playerViewModel.progress.collectAsState()
-
     var isExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -55,13 +52,13 @@ fun MainScreen(
                         Column {
                             AnimatedVisibility(visible = playbackState.currentSong != null && !isExpanded) {
                                 // MiniPlayer usará el playbackState para metadatos (Título, covers, isPlaying)
-                                MiniPlayer(
+                                MiniPlayerWithProgress(
                                     state = playbackState,
-                                    progressState = playerProgress,
                                     onExpand = { isExpanded = true },
                                     onTogglePlayPause = { playerViewModel.togglePlayPause() },
                                     onSkipNext = { playerViewModel.skipNext() },
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    playerViewModel = playerViewModel
                                 )
                             }
                             NavigationBar {
@@ -213,7 +210,6 @@ fun MainScreen(
 
         // El reproductor expandido pertenece a la UI global flotando sobre la navegación actual
 
-        val playerProgress by playerViewModel.progress.collectAsState()
         AnimatedVisibility(
             visible = isExpanded,
             enter = slideInVertically(initialOffsetY = { it }),
@@ -221,17 +217,57 @@ fun MainScreen(
         ) {
             // Nota: En tu ExpandedPlayerScreen pasa 'state = playbackState'. Si necesitas dibujar la barra de progreso
             // de la canción, consume directamente 'playerViewModel.progress' en ese componente para no causar retrasos aquí.
-            ExpandedPlayerScreen(
+            ExpandedPlayerWithProgress(
                 state = playbackState,
-                progress = playerProgress,
                 onCollapse = { isExpanded = false },
                 onTogglePlayPause = { playerViewModel.togglePlayPause() },
                 onSkipNext = { playerViewModel.skipNext() },
                 onSkipPrevious = { playerViewModel.skipPrevious() },
                 onSeek = { playerViewModel.seekTo(it) },
                 onToggleShuffle = { playerViewModel.toggleShuffle() },
-                onCycleRepeat = { playerViewModel.cycleRepeat() }
+                onCycleRepeat = { playerViewModel.cycleRepeat() },
+                playerViewModel = playerViewModel
             )
         }
     }
+}
+
+/** Mantiene las actualizaciones frecuentes del progreso fuera de la navegación y las listas. */
+@Composable
+private fun MiniPlayerWithProgress(
+    state: PlaybackMetaState,
+    onExpand: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onSkipNext: () -> Unit,
+    modifier: Modifier = Modifier,
+    playerViewModel: PlayerViewModel
+) {
+    val progress by playerViewModel.progress.collectAsState()
+    MiniPlayer(state, progress, onExpand, onTogglePlayPause, onSkipNext, modifier)
+}
+
+@Composable
+private fun ExpandedPlayerWithProgress(
+    state: PlaybackMetaState,
+    onCollapse: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onSkipNext: () -> Unit,
+    onSkipPrevious: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
+    playerViewModel: PlayerViewModel
+) {
+    val progress by playerViewModel.progress.collectAsState()
+    ExpandedPlayerScreen(
+        state = state,
+        progress = progress,
+        onCollapse = onCollapse,
+        onTogglePlayPause = onTogglePlayPause,
+        onSkipNext = onSkipNext,
+        onSkipPrevious = onSkipPrevious,
+        onSeek = onSeek,
+        onToggleShuffle = onToggleShuffle,
+        onCycleRepeat = onCycleRepeat
+    )
 }

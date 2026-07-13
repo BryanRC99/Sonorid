@@ -38,6 +38,7 @@ class MusicController @Inject constructor(
 ) {
     private var controller: MediaController? = null
     private var currentQueue: List<Song> = emptyList()
+    private var songsByMediaId: Map<String, Song> = emptyMap()
 
     private val _playbackState = MutableStateFlow(PlaybackMetaState())
     val playbackState: StateFlow<PlaybackMetaState> = _playbackState.asStateFlow()
@@ -62,9 +63,9 @@ class MusicController @Inject constructor(
                 _playbackState.value = _playbackState.value.copy(isPlaying = isPlaying)
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                val song = currentQueue.find { it.id.toString() == mediaItem?.mediaId }
+                val song = mediaItem?.mediaId?.let(songsByMediaId::get)
                 _playbackState.value = _playbackState.value.copy(currentSong = song)
-                _progress.value = _progress.value.copy(durationMs = controller?.duration?.coerceAtLeast(0) ?: 0L)
+                updateProgress()
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 _playbackState.value = _playbackState.value.copy(shuffleEnabled = shuffleModeEnabled)
@@ -72,21 +73,32 @@ class MusicController @Inject constructor(
             override fun onRepeatModeChanged(repeatMode: Int) {
                 _playbackState.value = _playbackState.value.copy(repeatMode = repeatMode)
             }
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) = updateProgress()
         })
     }
 
     /** Llamar periódicamente (ej. cada 500ms) desde el ViewModel para actualizar el progreso */
     fun pollPosition() {
+        updateProgress()
+    }
+
+    private fun updateProgress() {
         val c = controller ?: return
-        _progress.value = PlaybackProgress(
+        val next = PlaybackProgress(
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.coerceAtLeast(0)
         )
+        if (_progress.value != next) _progress.value = next
     }
 
     fun playQueue(songs: List<Song>, startIndex: Int) {
         val c = controller ?: return
         currentQueue = songs
+        songsByMediaId = songs.associateBy { it.id.toString() }
         val items = songs.map { song ->
             MediaItem.Builder()
                 .setMediaId(song.id.toString())
@@ -128,5 +140,7 @@ class MusicController @Inject constructor(
     fun release() {
         controller?.release()
         controller = null
+        currentQueue = emptyList()
+        songsByMediaId = emptyMap()
     }
 }
