@@ -17,14 +17,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class PlaybackUiState(
+/** Metadata de reproducción: cambia poco (solo al cambiar de canción o alternar shuffle/repeat). */
+data class PlaybackMetaState(
     val currentSong: Song? = null,
     val isPlaying: Boolean = false,
-    val positionMs: Long = 0L,
-    val durationMs: Long = 0L,
     val queue: List<Song> = emptyList(),
     val shuffleEnabled: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF
+)
+
+/** Progreso de reproducción: cambia ~2 veces por segundo. Aislado para no arrastrar recomposiciones. */
+data class PlaybackProgress(
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L
 )
 
 @Singleton
@@ -34,8 +39,11 @@ class MusicController @Inject constructor(
     private var controller: MediaController? = null
     private var currentQueue: List<Song> = emptyList()
 
-    private val _uiState = MutableStateFlow(PlaybackUiState())
-    val uiState: StateFlow<PlaybackUiState> = _uiState.asStateFlow()
+    private val _playbackState = MutableStateFlow(PlaybackMetaState())
+    val playbackState: StateFlow<PlaybackMetaState> = _playbackState.asStateFlow()
+
+    private val _progress = MutableStateFlow(PlaybackProgress())
+    val progress: StateFlow<PlaybackProgress> = _progress.asStateFlow()
 
     fun connect(onReady: () -> Unit = {}) {
         if (controller != null) { onReady(); return }
@@ -51,20 +59,18 @@ class MusicController @Inject constructor(
     private fun attachListener() {
         controller?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
+                _playbackState.value = _playbackState.value.copy(isPlaying = isPlaying)
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val song = currentQueue.find { it.id.toString() == mediaItem?.mediaId }
-                _uiState.value = _uiState.value.copy(
-                    currentSong = song,
-                    durationMs = controller?.duration?.coerceAtLeast(0) ?: 0L
-                )
+                _playbackState.value = _playbackState.value.copy(currentSong = song)
+                _progress.value = _progress.value.copy(durationMs = controller?.duration?.coerceAtLeast(0) ?: 0L)
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                _uiState.value = _uiState.value.copy(shuffleEnabled = shuffleModeEnabled)
+                _playbackState.value = _playbackState.value.copy(shuffleEnabled = shuffleModeEnabled)
             }
             override fun onRepeatModeChanged(repeatMode: Int) {
-                _uiState.value = _uiState.value.copy(repeatMode = repeatMode)
+                _playbackState.value = _playbackState.value.copy(repeatMode = repeatMode)
             }
         })
     }
@@ -72,7 +78,7 @@ class MusicController @Inject constructor(
     /** Llamar periódicamente (ej. cada 500ms) desde el ViewModel para actualizar el progreso */
     fun pollPosition() {
         val c = controller ?: return
-        _uiState.value = _uiState.value.copy(
+        _progress.value = PlaybackProgress(
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.coerceAtLeast(0)
         )
@@ -98,7 +104,7 @@ class MusicController @Inject constructor(
         c.setMediaItems(items, startIndex, 0L)
         c.prepare()
         c.play()
-        _uiState.value = _uiState.value.copy(queue = songs, currentSong = songs[startIndex])
+        _playbackState.value = _playbackState.value.copy(queue = songs, currentSong = songs[startIndex])
     }
 
     fun togglePlayPause() {

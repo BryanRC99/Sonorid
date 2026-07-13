@@ -37,6 +37,40 @@ class MediaStoreDataSource @Inject constructor(
         }
     }
 
+    /** Construye un mapa songId -> nombre de género usando la tabla clásica Genres/Members de MediaStore. */
+    private suspend fun buildGenreMap(): Map<Long, String> = withContext(Dispatchers.IO) {
+        val map = mutableMapOf<Long, String>()
+        val genresUri = MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI
+
+        context.contentResolver.query(
+            genresUri,
+            arrayOf(MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME),
+            null, null, null
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres._ID)
+            val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres.NAME)
+
+            while (cursor.moveToNext()) {
+                val genreId = cursor.getLong(idColumn)
+                val genreName = cursor.getString(nameColumn)?.takeIf { it.isNotBlank() } ?: continue
+
+                val membersUri = MediaStore.Audio.Genres.Members.getContentUri("external", genreId)
+                context.contentResolver.query(
+                    membersUri,
+                    arrayOf(MediaStore.Audio.Genres.Members.AUDIO_ID),
+                    null, null, null
+                )?.use { memberCursor ->
+                    val audioIdColumn = memberCursor.getColumnIndexOrThrow(MediaStore.Audio.Genres.Members.AUDIO_ID)
+                    while (memberCursor.moveToNext()) {
+                        map[memberCursor.getLong(audioIdColumn)] = genreName
+                    }
+                }
+            }
+        }
+
+        map
+    }
+
     suspend fun getAllFolders(): List<MusicFolder> = withContext(Dispatchers.IO) {
         val counts = mutableMapOf<String, Int>()
         val projection = arrayOf(pathColumn)
@@ -65,6 +99,7 @@ class MediaStoreDataSource @Inject constructor(
 
     suspend fun getAllSongs(selectedFolders: Set<String>): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
+        val genreMap = buildGenreMap()
 
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -127,7 +162,8 @@ class MediaStoreDataSource @Inject constructor(
                     duration = cursor.getLong(durationColumn),
                     uri = songUri,
                     albumArtUri = albumArtUri,
-                    trackNumber = cursor.getInt(trackColumn)
+                    trackNumber = cursor.getInt(trackColumn),
+                    genre = genreMap[id]
                 )
             }
         }

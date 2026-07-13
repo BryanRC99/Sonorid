@@ -7,6 +7,7 @@ import com.example.sonorid.data.local.db.ArtistInfoDao
 import com.example.sonorid.data.local.db.FavoriteDao
 import com.example.sonorid.data.local.db.PlaylistDao
 import com.example.sonorid.data.local.db.SonoridDatabase
+import com.example.sonorid.data.local.db.LyricsDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,4 +34,7 @@ object DatabaseModule {
 
     @Provides
     fun provideArtistInfoDao(db: SonoridDatabase): ArtistInfoDao = db.artistInfoDao()
+
+    @Provides
+    fun provideLyricsDao(db: SonoridDatabase): LyricsDao = db.lyricsDao()
 }

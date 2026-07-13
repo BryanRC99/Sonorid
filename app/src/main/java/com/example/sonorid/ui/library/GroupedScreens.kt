@@ -16,25 +16,95 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.sonorid.ui.common.AlbumArt
+import androidx.compose.material.icons.filled.LibraryMusic
 @Composable
-fun AlbumsScreen(viewModel: LibraryViewModel = hiltViewModel()) {
+fun AlbumsScreen(
+    onAlbumClick: (Long) -> Unit,
+    viewModel: LibraryViewModel = hiltViewModel()
+) {
     val songs by viewModel.songs.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadSongs() }
-    val albums = songs.groupBy { it.albumId to it.album }
 
-    LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().padding(8.dp)) {
-        items(albums.entries.toList()) { (key, tracks) ->
-            Column(modifier = Modifier.padding(8.dp)) {
-                AsyncImage(
-                    model = tracks.first().albumArtUri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp))
+    val albums = remember(songs) {
+        songs.groupBy { it.albumId }
+            .map { (albumId, tracks) ->
+                AlbumSummary(
+                    albumId = albumId,
+                    title = tracks.first().album,
+                    artist = tracks.first().artist,
+                    artUri = tracks.first().albumArtUri,
+                    songCount = tracks.size
                 )
-                Text(key.second, maxLines = 1, style = MaterialTheme.typography.bodyMedium)
-                Text("${tracks.size} canciones", style = MaterialTheme.typography.bodySmall)
+            }
+            .sortedBy { it.title.lowercase() }
+    }
+
+    if (albums.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Text("No se encontraron álbumes")
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(albums, key = { it.albumId }) { album ->
+                AlbumCard(album = album, onClick = { onAlbumClick(album.albumId) })
             }
         }
+    }
+}
+
+private data class AlbumSummary(
+    val albumId: Long,
+    val title: String,
+    val artist: String,
+    val artUri: android.net.Uri,
+    val songCount: Int
+)
+
+@Composable
+private fun AlbumCard(album: AlbumSummary, onClick: () -> Unit) {
+    Column(modifier = Modifier.clickable(onClick = onClick)) {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        ) {
+            AlbumArt(
+                artUri = album.artUri,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            album.title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            album.artist,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            "${album.songCount} canciones",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
     }
 }
 
@@ -68,9 +138,39 @@ fun ArtistsScreen(
 }
 
 @Composable
-fun GenresScreen() {
-    // MediaStore.Audio.Genres requiere una query aparte; placeholder por ahora.
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-        Text("Géneros — próximamente")
+fun GenresScreen(
+    onGenreClick: (String) -> Unit,
+    viewModel: LibraryViewModel = hiltViewModel()
+) {
+    val songs by viewModel.songs.collectAsState()
+    LaunchedEffect(Unit) { viewModel.loadSongs() }
+
+    val genres = remember(songs) {
+        songs.groupBy { it.genre ?: "Sin género" }
+            .map { (genre, tracks) -> genre to tracks.size }
+            .sortedBy { it.first.lowercase() }
+    }
+
+    if (genres.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Text("No se encontraron géneros")
+        }
+    } else {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(genres, key = { it.first }) { (genre, count) ->
+                ListItem(
+                    headlineContent = { Text(genre) },
+                    supportingContent = { Text("$count canciones") },
+                    leadingContent = {
+                        Icon(
+                            androidx.compose.material.icons.Icons.Default.LibraryMusic,
+                            contentDescription = null
+                        )
+                    },
+                    modifier = Modifier.clickable { onGenreClick(genre) }
+                )
+                HorizontalDivider()
+            }
+        }
     }
 }

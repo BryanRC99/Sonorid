@@ -17,11 +17,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.sonorid.playback.PlaybackUiState
+import com.example.sonorid.playback.PlaybackMetaState // 👈 CORREGIDO: Importamos el nuevo estado de metadatos
+import com.example.sonorid.playback.PlaybackProgress   // 👈 CORREGIDO: Importamos el nuevo estado de progreso
 
 @Composable
 fun MiniPlayer(
-    state: PlaybackUiState,
+    state: PlaybackMetaState,       // 👈 CORREGIDO: Cambiado de PlaybackUiState a PlaybackMetaState
+    progressState: PlaybackProgress, // 👈 SOLUCIÓN: Agregamos el progreso independiente para pintar la barra
     onExpand: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -36,9 +38,11 @@ fun MiniPlayer(
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable { onExpand() }
     ) {
-        val progress = if (state.durationMs > 0) {
-            state.positionMs.toFloat() / state.durationMs.toFloat()
+        // 🛠️ CORREGIDO: Ahora calcula el progreso usando progressState en lugar de state
+        val progress = if (progressState.durationMs > 0) {
+            progressState.positionMs.toFloat() / progressState.durationMs.toFloat()
         } else 0f
+
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier.fillMaxWidth().height(2.dp)

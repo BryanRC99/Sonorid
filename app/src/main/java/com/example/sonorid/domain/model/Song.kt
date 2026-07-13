@@ -6,8 +6,9 @@ data class Song(
     val artist: String,
     val album: String,
     val albumId: Long,
-    val duration: Long,       // en milisegundos
+    val duration: Long,
     val uri: android.net.Uri,
     val albumArtUri: android.net.Uri,
-    val trackNumber: Int
+    val trackNumber: Int,
+    val genre: String? = null
 )

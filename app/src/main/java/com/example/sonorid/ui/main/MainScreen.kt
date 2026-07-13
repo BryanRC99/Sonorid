@@ -9,10 +9,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue // 👈 Asegura el correcto funcionamiento de 'by'
+import androidx.compose.runtime.setValue // 👈 Asegura el correcto funcionamiento de 'by'
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
+import com.example.sonorid.playback.PlaybackMetaState // 👈 IMPORTADO: El estado de metadatos real de tu MusicController
 import com.example.sonorid.ui.folders.FolderSelectionScreen
 import com.example.sonorid.ui.library.*
 import com.example.sonorid.ui.player.*
@@ -33,9 +36,14 @@ fun MainScreen(
     playerViewModel: PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val rootNav = rememberNavController()
-    val playbackState by playerViewModel.uiState.collectAsState()
+
+    // 1. Recolectamos el estado de los metadatos (Canción, si está reproduciendo, etc.)
+    val playbackState by playerViewModel.metaState.collectAsState()
+
+    // 🚀 SOLUCIÓN: Añade esta línea para recolectar el progreso que te pide el MiniPlayer y el ExpandedPlayer
+    val playerProgress by playerViewModel.progress.collectAsState()
+
     var isExpanded by remember { mutableStateOf(false) }
-    var showLyrics by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = rootNav, startDestination = "main") {
@@ -46,8 +54,10 @@ fun MainScreen(
                     bottomBar = {
                         Column {
                             AnimatedVisibility(visible = playbackState.currentSong != null && !isExpanded) {
+                                // MiniPlayer usará el playbackState para metadatos (Título, covers, isPlaying)
                                 MiniPlayer(
                                     state = playbackState,
+                                    progressState = playerProgress,
                                     onExpand = { isExpanded = true },
                                     onTogglePlayPause = { playerViewModel.togglePlayPause() },
                                     onSkipNext = { playerViewModel.skipNext() },
@@ -87,16 +97,19 @@ fun MainScreen(
                                 onSongClick = { songs, index -> playerViewModel.play(songs, index) }
                             )
                         }
-                        composable(Tab.Albums.route) { AlbumsScreen() }
-
-                        // 🛠️ Tab de Artistas con codificación URLEncoder
+                        composable(Tab.Albums.route) {
+                            AlbumsScreen(onAlbumClick = { albumId -> rootNav.navigate("album/$albumId") })
+                        }
                         composable(Tab.Artists.route) {
                             ArtistsScreen(onArtistClick = { artist ->
                                 rootNav.navigate("artist/${java.net.URLEncoder.encode(artist, "UTF-8")}")
                             })
                         }
-                        composable(Tab.Genres.route) { GenresScreen() }
-
+                        composable(Tab.Genres.route) {
+                            GenresScreen(onGenreClick = { genre ->
+                                rootNav.navigate("genre/${java.net.URLEncoder.encode(genre, "UTF-8")}")
+                            })
+                        }
                         composable(Tab.Playlists.route) {
                             com.example.sonorid.ui.playlists.PlaylistsScreen(
                                 onOpenFavorites = { rootNav.navigate("favorites") },
@@ -149,7 +162,38 @@ fun MainScreen(
                 )
             }
 
-            // 🛠️ Nueva ruta raíz para el Detalle del Artista (con decodificación URLDecoder)
+            // 🚀 Limpieza: Se quitó la segunda declaración duplicada que tenías de esta ruta
+            composable(
+                route = "album/{albumId}",
+                arguments = listOf(androidx.navigation.navArgument("albumId") { type = androidx.navigation.NavType.LongType })
+            ) { backStackEntry ->
+                val albumId = backStackEntry.arguments?.getLong("albumId") ?: return@composable
+                com.example.sonorid.ui.album.AlbumDetailScreen(
+                    albumId = albumId,
+                    onBack = { rootNav.popBackStack() },
+                    onSongClick = { songs, index ->
+                        playerViewModel.play(songs, index)
+                        rootNav.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                route = "genre/{genreName}",
+                arguments = listOf(androidx.navigation.navArgument("genreName") { type = androidx.navigation.NavType.StringType })
+            ) { backStackEntry ->
+                val encoded = backStackEntry.arguments?.getString("genreName") ?: return@composable
+                val genre = java.net.URLDecoder.decode(encoded, "UTF-8")
+                com.example.sonorid.ui.genre.GenreDetailScreen(
+                    genre = genre,
+                    onBack = { rootNav.popBackStack() },
+                    onSongClick = { songs, index ->
+                        playerViewModel.play(songs, index)
+                        rootNav.popBackStack()
+                    }
+                )
+            }
+
             composable(
                 route = "artist/{artistName}",
                 arguments = listOf(androidx.navigation.navArgument("artistName") { type = androidx.navigation.NavType.StringType })
@@ -167,33 +211,27 @@ fun MainScreen(
             }
         } // Cierre del NavHost general (rootNav)
 
-        // El reproductor expandido y las letras pertenecen a la UI global de la pantalla
+        // El reproductor expandido pertenece a la UI global flotando sobre la navegación actual
+
+        val playerProgress by playerViewModel.progress.collectAsState()
         AnimatedVisibility(
-            visible = isExpanded && !showLyrics,
+            visible = isExpanded,
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it })
         ) {
+            // Nota: En tu ExpandedPlayerScreen pasa 'state = playbackState'. Si necesitas dibujar la barra de progreso
+            // de la canción, consume directamente 'playerViewModel.progress' en ese componente para no causar retrasos aquí.
             ExpandedPlayerScreen(
                 state = playbackState,
+                progress = playerProgress,
                 onCollapse = { isExpanded = false },
                 onTogglePlayPause = { playerViewModel.togglePlayPause() },
                 onSkipNext = { playerViewModel.skipNext() },
                 onSkipPrevious = { playerViewModel.skipPrevious() },
                 onSeek = { playerViewModel.seekTo(it) },
                 onToggleShuffle = { playerViewModel.toggleShuffle() },
-                onCycleRepeat = { playerViewModel.cycleRepeat() },
-                onShowLyrics = { showLyrics = true }
+                onCycleRepeat = { playerViewModel.cycleRepeat() }
             )
-        }
-
-        if (showLyrics) {
-            playbackState.currentSong?.let { song ->
-                LyricsScreen(
-                    song = song,
-                    currentPositionMs = playbackState.positionMs,
-                    onBack = { showLyrics = false }
-                )
-            }
         }
     }
 }

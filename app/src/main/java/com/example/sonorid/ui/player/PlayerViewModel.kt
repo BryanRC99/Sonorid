@@ -5,7 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sonorid.domain.model.Song
 import com.example.sonorid.playback.MusicController
-import com.example.sonorid.playback.PlaybackUiState
+import com.example.sonorid.playback.PlaybackMetaState // 👈 Importado correcto
+import com.example.sonorid.playback.PlaybackProgress  // 👈 Importado correcto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,9 @@ class PlayerViewModel @Inject constructor(
     private val musicController: MusicController
 ) : ViewModel() {
 
-    val uiState: StateFlow<PlaybackUiState> = musicController.uiState
+    // 🚀 Exponemos los dos flujos optimizados de MusicController por separado
+    val metaState: StateFlow<PlaybackMetaState> = musicController.playbackState
+    val progress: StateFlow<PlaybackProgress> = musicController.progress
 
     init {
         musicController.connect {
