@@ -7,6 +7,7 @@ import com.example.sonorid.data.repository.LyricsRepositoryImpl
 import com.example.sonorid.domain.model.Lyrics
 import com.example.sonorid.domain.model.Song
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,14 +26,21 @@ class LyricsViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private var loadedForSongId: Long? = null
+    private var loadJob: Job? = null
 
     fun loadIfNeeded(song: Song) {
         if (loadedForSongId == song.id) return
         loadedForSongId = song.id
-        viewModelScope.launch {
-            _isLoading.value = true
-            _lyrics.value = repository.getLyrics(song)
-            _isLoading.value = false
+        loadJob?.cancel()
+        _lyrics.value = null
+        _isLoading.value = true
+
+        loadJob = viewModelScope.launch {
+            val result = repository.getLyrics(song)
+            if (loadedForSongId == song.id) {
+                _lyrics.value = result
+                _isLoading.value = false
+            }
         }
     }
 }

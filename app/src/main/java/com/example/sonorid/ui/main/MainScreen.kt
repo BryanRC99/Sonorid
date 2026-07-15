@@ -78,7 +78,13 @@ fun MainScreen(
                     SnackbarHost(snackbarHostState) { data -> SonoridToast(data) }
                 },
                 bottomBar = {
-                    Column {
+                    // 🛠️ FIX: navigationBarsPadding() se aplica UNA sola vez aquí, al
+                    // contenedor completo, sin importar si se muestra solo el MiniPlayer
+                    // (Álbum/Artista/Lista/Favoritos) o MiniPlayer + tabs (pantallas
+                    // principales). Antes solo lo tenía SonoridBottomBar, así que cuando
+                    // esa barra se ocultaba, el MiniPlayer quedaba pegado al borde y la
+                    // barra de navegación del sistema lo tapaba a la mitad.
+                    Column(modifier = Modifier.navigationBarsPadding()) {
                         AnimatedVisibility(visible = playbackState.currentSong != null && !isExpanded) {
                             MiniPlayerWithProgress(
                                 state = playbackState,
@@ -89,9 +95,6 @@ fun MainScreen(
                                 playerViewModel = playerViewModel
                             )
                         }
-                        // La barra de 4 pestañas solo tiene sentido estando
-                        // en "main"; en Álbum/Artista/Lista se oculta (como
-                        // hace Spotify), pero el MiniPlayer de arriba persiste.
                         if (isOnMainTabs) {
                             SonoridBottomBar(
                                 currentRoute = currentTabRoute,
@@ -293,7 +296,6 @@ private fun SonoridBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
                 .height(56.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
