@@ -1,6 +1,6 @@
 <h1 align="center">
   <img src="docs/images/Logo.png" width="100" alt="Sonorid logo"><br>
-  🎵 Sonorid
+  Sonorid
 </h1>
 
 <p align="center">
