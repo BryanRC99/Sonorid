@@ -27,9 +27,14 @@ fun InitialsAvatar(
     val initials = remember(name) { extractInitials(name) }
     val bgColor = remember(name) { colorForName(name) }
 
+    val effectiveModifier = if (modifier == Modifier) {
+        modifier.size(size)
+    } else {
+        modifier
+    }
+
     Box(
-        modifier = modifier
-            .size(size)
+        modifier = effectiveModifier
             .clip(CircleShape)
             .background(bgColor),
         contentAlignment = Alignment.Center
@@ -58,7 +63,7 @@ private val avatarColors = listOf(
     Color(0xFFF06292), Color(0xFF9575CD)
 )
 
-private fun colorForName(name: String): Color {
+fun colorForName(name: String): Color {
     val index = abs(name.hashCode()) % avatarColors.size
     return avatarColors[index]
 }

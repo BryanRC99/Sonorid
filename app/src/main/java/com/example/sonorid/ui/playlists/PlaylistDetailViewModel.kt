@@ -23,6 +23,11 @@ class PlaylistDetailViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // Nombre real de la lista de reproducción (para el header hero).
+    // null mientras carga, o cuando es la pantalla de Favoritos.
+    private val _playlistName = MutableStateFlow<String?>(null)
+    val playlistName: StateFlow<String?> = _playlistName.asStateFlow()
+
     val favoriteIds: StateFlow<Set<Long>> = favoritesRepository.getFavoritesFlow()
         .map { list -> list.map { it.songId }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -36,6 +41,7 @@ class PlaylistDetailViewModel @Inject constructor(
         loadedIsFavorites = false
         viewModelScope.launch {
             _isLoading.value = true
+            _playlistName.value = playlistRepository.getPlaylist(playlistId)?.name
             _songs.value = playlistRepository.getSongsForPlaylist(playlistId)
             _isLoading.value = false
         }
@@ -45,6 +51,7 @@ class PlaylistDetailViewModel @Inject constructor(
         if (loadedIsFavorites) return
         loadedIsFavorites = true
         loadedPlaylistId = null
+        _playlistName.value = null
         viewModelScope.launch {
             _isLoading.value = true
             _songs.value = favoritesRepository.getFavoriteSongs()

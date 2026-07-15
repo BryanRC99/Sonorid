@@ -13,12 +13,12 @@ fun CreatePlaylistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nueva lista") },
+        title = { Text("Nueva lista de reproducción") },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                placeholder = { Text("Nombre de la lista") },
+                placeholder = { Text("Nombre de la lista de reproducción") },
                 singleLine = true
             )
         },

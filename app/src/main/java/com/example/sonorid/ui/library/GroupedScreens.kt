@@ -7,22 +7,23 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import androidx.compose.foundation.clickable
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import com.example.sonorid.ui.common.AlbumArt
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.unit.dp
+import com.example.sonorid.ui.common.AlbumArt
+import com.example.sonorid.ui.common.ArtistImage
+import com.example.sonorid.ui.theme.SonoridExtraShapes
+import com.example.sonorid.ui.theme.SonoridSpacing
+
 @Composable
 fun AlbumsScreen(
     onAlbumClick: (Long) -> Unit,
@@ -46,15 +47,27 @@ fun AlbumsScreen(
     }
 
     if (albums.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            Text("No se encontraron álbumes")
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.Album,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.height(SonoridSpacing.Sm))
+                Text(
+                    "No se encontraron álbumes",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     } else {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(SonoridSpacing.Md),
+            horizontalArrangement = Arrangement.spacedBy(SonoridSpacing.Md),
+            verticalArrangement = Arrangement.spacedBy(SonoridSpacing.Lg),
             modifier = Modifier.fillMaxSize()
         ) {
             items(albums, key = { it.albumId }) { album ->
@@ -75,17 +88,12 @@ private data class AlbumSummary(
 @Composable
 private fun AlbumCard(album: AlbumSummary, onClick: () -> Unit) {
     Column(modifier = Modifier.clickable(onClick = onClick)) {
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-        ) {
-            AlbumArt(
-                artUri = album.artUri,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-            )
-        }
-        Spacer(Modifier.height(8.dp))
+        AlbumArt(
+            artUri = album.artUri,
+            shape = SonoridExtraShapes.albumArt,
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+        )
+        Spacer(Modifier.height(SonoridSpacing.Sm))
         Text(
             album.title,
             style = MaterialTheme.typography.titleSmall,
@@ -93,6 +101,7 @@ private fun AlbumCard(album: AlbumSummary, onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        Spacer(Modifier.height(2.dp))
         Text(
             album.artist,
             style = MaterialTheme.typography.bodySmall,
@@ -100,15 +109,13 @@ private fun AlbumCard(album: AlbumSummary, onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Text(
-            "${album.songCount} canciones",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline
-        )
     }
 }
 
-// GroupedScreens.kt — reemplaza ArtistsScreen completa
+/**
+ * Grid circular estilo Spotify (sección "Artistas que sigues"): fotos
+ * redondas, nombre centrado debajo, sin texto secundario ni bordes.
+ */
 @Composable
 fun ArtistsScreen(
     onArtistClick: (String) -> Unit,
@@ -124,19 +131,55 @@ fun ArtistsScreen(
             .sortedBy { (artist, _) -> artist.lowercase() }
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(artists, key = { (artist, _) -> artist }) { (artist, tracks) ->
-            LaunchedEffect(artist) { infoViewModel.request(artist) }
-            val imageUrl = infoMap[artist]?.imageUrl
+    if (artists.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.height(SonoridSpacing.Sm))
+                Text(
+                    "No se encontraron artistas",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            contentPadding = PaddingValues(SonoridSpacing.Md),
+            horizontalArrangement = Arrangement.spacedBy(SonoridSpacing.Sm),
+            verticalArrangement = Arrangement.spacedBy(SonoridSpacing.Lg),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(artists, key = { (artist, _) -> artist }) { (artist, _) ->
+                LaunchedEffect(artist) { infoViewModel.request(artist) }
+                val imageUrl = infoMap[artist]?.imageUrl
 
-            ListItem(
-                leadingContent = {
-                    com.example.sonorid.ui.common.ArtistImage(artistName = artist, imageUrl = imageUrl)
-                },
-                headlineContent = { Text(artist) },
-                supportingContent = { Text("${tracks.size} canciones") },
-                modifier = Modifier.clickable { onArtistClick(artist) }
-            )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onArtistClick(artist) },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ArtistImage(
+                        artistName = artist,
+                        imageUrl = imageUrl,
+                        modifier = Modifier.fillMaxWidth(0.8f).aspectRatio(1f)
+                    )
+                    Spacer(Modifier.height(SonoridSpacing.Xs))
+                    Text(
+                        text = artist,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
@@ -156,7 +199,7 @@ fun GenresScreen(
     }
 
     if (genres.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No se encontraron géneros")
         }
     } else {
@@ -167,7 +210,7 @@ fun GenresScreen(
                     supportingContent = { Text("$count canciones") },
                     leadingContent = {
                         Icon(
-                            androidx.compose.material.icons.Icons.Default.LibraryMusic,
+                            Icons.Default.LibraryMusic,
                             contentDescription = null
                         )
                     },

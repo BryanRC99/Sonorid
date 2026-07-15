@@ -1,6 +1,7 @@
 // app/src/main/java/com/example/sonorid/data/repository/PlaylistRepository.kt
 package com.example.sonorid.data.repository
 
+import android.net.Uri
 import com.example.sonorid.data.local.db.PlaylistDao
 import com.example.sonorid.data.local.db.PlaylistEntity
 import com.example.sonorid.data.local.db.PlaylistSongCrossRef
@@ -10,12 +11,20 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Resumen liviano para pintar una fila de lista de reproducción sin cargar todo el detalle. */
+data class PlaylistPreview(
+    val previewArt: List<Uri>,
+    val songCount: Int
+)
+
 @Singleton
 class PlaylistRepository @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val musicRepository: MusicRepository
 ) {
     fun getPlaylists(): Flow<List<PlaylistEntity>> = playlistDao.getPlaylists()
+
+    suspend fun getPlaylist(id: Long): PlaylistEntity? = playlistDao.getPlaylistById(id)
 
     fun songCount(playlistId: Long): Flow<Int> = playlistDao.songCountForPlaylist(playlistId)
 
@@ -41,5 +50,18 @@ class PlaylistRepository @Inject constructor(
         val allSongs = musicRepository.getAllSongs()
         val songsById = allSongs.associateBy { it.id }
         return refs.mapNotNull { songsById[it.songId] }
+    }
+
+    /**
+     * Portada + conteo para pintar una fila de la lista de "Tus listas" sin
+     * traer todas las canciones completas cada vez. previewLimit=4 porque
+     * el collage estilo Spotify usa un grid 2x2.
+     */
+    suspend fun getPreview(playlistId: Long, previewLimit: Int = 4): PlaylistPreview {
+        val songs = getSongsForPlaylist(playlistId)
+        return PlaylistPreview(
+            previewArt = songs.take(previewLimit).map { it.albumArtUri },
+            songCount = songs.size
+        )
     }
 }

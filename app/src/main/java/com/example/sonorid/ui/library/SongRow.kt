@@ -1,14 +1,8 @@
+// app/src/main/java/com/example/sonorid/ui/library/SongRow.kt
 package com.example.sonorid.ui.library
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +14,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.ui.common.SongOverflowMenu
+import com.example.sonorid.ui.theme.SonoridExtraShapes
+import com.example.sonorid.ui.theme.SonoridSizes
 import com.example.sonorid.ui.theme.SonoridSpacing
 
 @Composable
@@ -34,20 +31,27 @@ fun SongRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 68.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = song.albumArtUri,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp))
+            modifier = Modifier
+                .size(SonoridSizes.SongRowArt)
+                .clip(SonoridExtraShapes.albumArt)
         )
-        Spacer(Modifier.width(SonoridSpacing.Md))
+        Spacer(Modifier.width(SonoridSpacing.Sm))
         Column(modifier = Modifier.weight(1f)) {
-            Text(song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                text = song.title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = "${song.artist} · ${song.album}",
                 style = MaterialTheme.typography.bodySmall,
@@ -56,17 +60,11 @@ fun SongRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(SonoridSpacing.Xs)) {
-            IconButton(onClick = onToggleFavorite) {
-                Icon(
-                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Favorito",
-                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onAddToPlaylist) {
-                Icon(Icons.Default.PlaylistAdd, "Agregar a lista", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        Spacer(Modifier.width(SonoridSpacing.Xs))
+        SongOverflowMenu(
+            isFavorite = isFavorite,
+            onToggleFavorite = onToggleFavorite,
+            onAddToPlaylist = onAddToPlaylist
+        )
     }
 }
