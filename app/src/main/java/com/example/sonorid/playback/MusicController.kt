@@ -95,28 +95,54 @@ class MusicController @Inject constructor(
         if (_progress.value != next) _progress.value = next
     }
 
+    private fun buildMediaItem(song: Song): MediaItem =
+        MediaItem.Builder()
+            .setMediaId(song.id.toString())
+            .setUri(song.uri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(song.title)
+                    .setArtist(song.artist)
+                    .setAlbumTitle(song.album)
+                    .setArtworkUri(song.albumArtUri)
+                    .build()
+            )
+            .build()
+
     fun playQueue(songs: List<Song>, startIndex: Int) {
         val c = controller ?: return
         currentQueue = songs
         songsByMediaId = songs.associateBy { it.id.toString() }
-        val items = songs.map { song ->
-            MediaItem.Builder()
-                .setMediaId(song.id.toString())
-                .setUri(song.uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(song.title)
-                        .setArtist(song.artist)
-                        .setAlbumTitle(song.album)
-                        .setArtworkUri(song.albumArtUri)
-                        .build()
-                )
-                .build()
-        }
+        val items = songs.map { buildMediaItem(it) }
         c.setMediaItems(items, startIndex, 0L)
         c.prepare()
         c.play()
         _playbackState.value = _playbackState.value.copy(queue = songs, currentSong = songs[startIndex])
+    }
+
+    /** Agrega una canción al final de la cola actual, sin interrumpir la reproducción. */
+    fun addToQueue(song: Song) {
+        val c = controller ?: return
+        c.addMediaItem(buildMediaItem(song))
+        songsByMediaId = songsByMediaId + (song.id.toString() to song)
+        currentQueue = currentQueue + song
+        _playbackState.value = _playbackState.value.copy(queue = currentQueue)
+    }
+
+    /** Quita una canción de la cola (ej. tras eliminar el archivo del dispositivo). */
+    fun removeFromQueue(songId: Long) {
+        val c = controller ?: return
+        val index = currentQueue.indexOfFirst { it.id == songId }
+        if (index < 0) return
+        c.removeMediaItem(index)
+        currentQueue = currentQueue.filterNot { it.id == songId }
+        songsByMediaId = songsByMediaId - songId.toString()
+        _playbackState.value = _playbackState.value.copy(queue = currentQueue)
+    }
+
+    /** Salta directo a un ítem de la cola (ej. desde la hoja "Cola de reproducción"). */
+    fun seekToQueueItem(index: Int) {
+        controller?.seekTo(index, 0L)
     }
 
     fun togglePlayPause() {

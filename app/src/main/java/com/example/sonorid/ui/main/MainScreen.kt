@@ -1,9 +1,10 @@
-// app/src/main/java/com/example/sonorid/ui/main/MainScreen.kt
+// ui/main/MainScreen.kt
 package com.example.sonorid.ui.main
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -13,8 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.example.sonorid.ui.settings.AboutScreen
+import com.example.sonorid.ui.settings.BulkLyricsScreen
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
@@ -26,6 +31,7 @@ import com.example.sonorid.ui.library.*
 import com.example.sonorid.ui.player.*
 import com.example.sonorid.ui.search.SearchScreen
 import com.example.sonorid.ui.settings.SettingsScreen
+import com.example.sonorid.ui.settings.BackupScreen
 import com.example.sonorid.ui.theme.SonoridSpacing
 import kotlinx.coroutines.launch
 
@@ -43,9 +49,6 @@ fun MainScreen(
     playerViewModel: PlayerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val rootNav = rememberNavController()
-    // 🛠️ tabNav se sube a este nivel (antes vivía dentro de composable("main"))
-    // para que la barra inferior, que ahora está en el Scaffold EXTERIOR,
-    // pueda leer su ruta actual y resaltar la pestaña seleccionada.
     val tabNav = rememberNavController()
 
     val playbackState by playerViewModel.metaState.collectAsState()
@@ -69,21 +72,10 @@ fun MainScreen(
     CompositionLocalProvider(LocalToastHost provides showToast) {
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
-                // 🛠️ FIX PRINCIPAL: este Scaffold (con el MiniPlayer) ahora
-                // envuelve TODO rootNav, no solo la ruta "main". Antes, al
-                // navegar a album/{albumId}, artist/{artistName}, favorites
-                // o playlist/{id}, este Scaffold se desmontaba por completo
-                // junto con el MiniPlayer, aunque la música seguía sonando.
                 snackbarHost = {
                     SnackbarHost(snackbarHostState) { data -> SonoridToast(data) }
                 },
                 bottomBar = {
-                    // 🛠️ FIX: navigationBarsPadding() se aplica UNA sola vez aquí, al
-                    // contenedor completo, sin importar si se muestra solo el MiniPlayer
-                    // (Álbum/Artista/Lista/Favoritos) o MiniPlayer + tabs (pantallas
-                    // principales). Antes solo lo tenía SonoridBottomBar, así que cuando
-                    // esa barra se ocultaba, el MiniPlayer quedaba pegado al borde y la
-                    // barra de navegación del sistema lo tapaba a la mitad.
                     Column(modifier = Modifier.navigationBarsPadding()) {
                         AnimatedVisibility(visible = playbackState.currentSong != null && !isExpanded) {
                             MiniPlayerWithProgress(
@@ -116,17 +108,9 @@ fun MainScreen(
                     modifier = Modifier.padding(padding)
                 ) {
                     composable("main") {
-                        val topBarTitle = when (currentTabRoute) {
-                            Tab.Albums.route -> "Álbumes"
-                            Tab.Artists.route -> "Artistas"
-                            Tab.Playlists.route -> "Tus listas"
-                            else -> "Sonorid"
-                        }
-
                         Scaffold(
                             topBar = {
                                 SonoridAppTopBar(
-                                    title = topBarTitle,
                                     onOpenSearch = { rootNav.navigate("search") },
                                     onOpenSettings = { rootNav.navigate("settings") }
                                 )
@@ -164,12 +148,26 @@ fun MainScreen(
                     composable("settings") {
                         SettingsScreen(
                             onBack = { rootNav.popBackStack() },
-                            onOpenFolders = { rootNav.navigate("folders") }
+                            onOpenFolders = { rootNav.navigate("folders") },
+                            onOpenBulkLyrics = { rootNav.navigate("bulk_lyrics") },
+                            onOpenBackup = { rootNav.navigate("backup") },
+                            onOpenAbout = { rootNav.navigate("about") }
                         )
                     }
 
                     composable("folders") {
                         FolderSelectionScreen(onBack = { rootNav.popBackStack() })
+                    }
+                    composable("about") {
+                        AboutScreen(onBack = { rootNav.popBackStack() })
+                    }
+
+                    composable("bulk_lyrics") {
+                        BulkLyricsScreen(onBack = { rootNav.popBackStack() })
+                    }
+
+                    composable("backup") {
+                        BackupScreen(onBack = { rootNav.popBackStack() })
                     }
 
                     composable("search") {
@@ -236,25 +234,19 @@ fun MainScreen(
                 enter = slideInVertically(initialOffsetY = { it }),
                 exit = slideOutVertically(targetOffsetY = { it })
             ) {
-                ExpandedPlayerWithProgress(
-                    state = playbackState,
-                    onCollapse = { isExpanded = false },
-                    onTogglePlayPause = { playerViewModel.togglePlayPause() },
-                    onSkipNext = { playerViewModel.skipNext() },
-                    onSkipPrevious = { playerViewModel.skipPrevious() },
-                    onSeek = { playerViewModel.seekTo(it) },
-                    onToggleShuffle = { playerViewModel.toggleShuffle() },
-                    onCycleRepeat = { playerViewModel.cycleRepeat() },
-                    playerViewModel = playerViewModel
+                ExpandedPlayerScreen(
+                    playerViewModel = playerViewModel,
+                    onCollapse = { isExpanded = false }
                 )
             }
         }
     }
 }
 
+/** Barra superior de Inicio: solo búsqueda y ajustes, sin título, con botones
+ * circulares consistentes con la referencia (fondo surfaceContainerHigh). */
 @Composable
 private fun SonoridAppTopBar(
-    title: String,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -263,24 +255,37 @@ private fun SonoridAppTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = SonoridSpacing.Md)
+                .padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Sm)
                 .height(48.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = onOpenSearch, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Search, contentDescription = "Buscar", modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.width(SonoridSpacing.Xs))
-            IconButton(onClick = onOpenSettings, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Settings, contentDescription = "Ajustes", modifier = Modifier.size(20.dp))
-            }
+            TopBarIconButton(icon = Icons.Default.Search, contentDescription = "Buscar", onClick = onOpenSearch)
+            TopBarIconButton(icon = Icons.Default.Settings, contentDescription = "Ajustes", onClick = onOpenSettings)
         }
+    }
+}
+
+@Composable
+private fun TopBarIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -331,30 +336,4 @@ private fun MiniPlayerWithProgress(
 ) {
     val progress by playerViewModel.progress.collectAsState()
     MiniPlayer(state, progress, onExpand, onTogglePlayPause, onSkipNext, modifier)
-}
-
-@Composable
-private fun ExpandedPlayerWithProgress(
-    state: PlaybackMetaState,
-    onCollapse: () -> Unit,
-    onTogglePlayPause: () -> Unit,
-    onSkipNext: () -> Unit,
-    onSkipPrevious: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onToggleShuffle: () -> Unit,
-    onCycleRepeat: () -> Unit,
-    playerViewModel: PlayerViewModel
-) {
-    val progress by playerViewModel.progress.collectAsState()
-    ExpandedPlayerScreen(
-        state = state,
-        progress = progress,
-        onCollapse = onCollapse,
-        onTogglePlayPause = onTogglePlayPause,
-        onSkipNext = onSkipNext,
-        onSkipPrevious = onSkipPrevious,
-        onSeek = onSeek,
-        onToggleShuffle = onToggleShuffle,
-        onCycleRepeat = onCycleRepeat
-    )
 }

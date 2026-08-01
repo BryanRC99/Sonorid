@@ -1,11 +1,14 @@
 // app/src/main/java/com/example/sonorid/data/local/MediaStoreDataSource.kt
 package com.example.sonorid.data.local
 
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import com.example.sonorid.domain.model.MediaActionResult
 import com.example.sonorid.domain.model.MusicFolder
 import com.example.sonorid.domain.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,10 +34,9 @@ class MediaStoreDataSource @Inject constructor(
             MediaStore.Audio.Media.DATA
         }
 
-    /** Convierte lo que venga en pathColumn a un path de carpeta normalizado tipo "Music/Sub/" */
     private fun normalizeFolderPath(raw: String): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            raw // RELATIVE_PATH ya viene como "Music/Sub/"
+            raw
         } else {
             val parent = File(raw).parent ?: return raw
             val trimmed = parent.substringAfter("/storage/emulated/0/", parent)
@@ -42,7 +44,6 @@ class MediaStoreDataSource @Inject constructor(
         }
     }
 
-    /** Construye un mapa songId -> nombre de género usando la tabla clásica Genres/Members de MediaStore. */
     private suspend fun buildGenreMap(): Map<Long, String> = withContext(Dispatchers.IO) {
         val map = mutableMapOf<Long, String>()
         val genresUri = MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI
@@ -72,12 +73,9 @@ class MediaStoreDataSource @Inject constructor(
                 }
             }
         }
-
         map
     }
 
-    /** Los géneros cambian muy poco y construirlos implica una consulta por cada género.
-     * Mantenerlos durante la sesión evita repetir esa cascada al cambiar de pestaña. */
     private suspend fun getGenreMap(): Map<Long, String> = genreCacheMutex.withLock {
         genreCache ?: buildGenreMap().also { genreCache = it }
     }
@@ -123,21 +121,14 @@ class MediaStoreDataSource @Inject constructor(
             pathColumn
         )
 
-        var selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
-        var selectionArgs: Array<String>? = null
-
-        // En API 29+ podemos filtrar directo en la query con RELATIVE_PATH.
-        if (selectedFolders.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val placeholders = selectedFolders.joinToString(" OR ") { "$pathColumn = ?" }
-            selection += " AND ($placeholders)"
-            selectionArgs = selectedFolders.toTypedArray()
-        }
-
+        // 🛠️ FIX: Quitamos el filtro directo de RELATIVE_PATH en la query.
+        // Evita crasheos por incompatibilidades de controladores de MediaStore en Android 10/11.
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
         context.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            projection, selection, selectionArgs, sortOrder
+            projection, selection, null, sortOrder
         )?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
@@ -149,11 +140,12 @@ class MediaStoreDataSource @Inject constructor(
             val pathColIndex = cursor.getColumnIndexOrThrow(pathColumn)
 
             while (cursor.moveToNext()) {
-                // Filtro manual para API < 29 (RELATIVE_PATH no existe ahí)
-                if (selectedFolders.isNotEmpty() && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                    val raw = cursor.getString(pathColIndex) ?: continue
-                    val folderPath = normalizeFolderPath(raw)
-                    if (folderPath !in selectedFolders) continue
+                val raw = cursor.getString(pathColIndex) ?: continue
+                val folderPath = normalizeFolderPath(raw)
+
+                // 🛠️ FIX: El filtrado manual ahora procesa de forma segura tanto API < 29 como API >= 29
+                if (selectedFolders.isNotEmpty() && folderPath !in selectedFolders) {
+                    continue
                 }
 
                 val id = cursor.getLong(idColumn)
@@ -178,7 +170,74 @@ class MediaStoreDataSource @Inject constructor(
                 )
             }
         }
-
         songs
+    }
+
+    // ---------------------------------------------------------------------
+    // Edición / eliminación de archivos vía MediaStore (Scoped Storage)
+    // ---------------------------------------------------------------------
+
+    suspend fun deleteSong(uri: Uri): MediaActionResult = withContext(Dispatchers.IO) {
+        try {
+            val rows = context.contentResolver.delete(uri, null, null)
+            if (rows > 0) MediaActionResult.Success
+            else MediaActionResult.Error("No se pudo eliminar el archivo")
+        } catch (e: Exception) {
+            // 🛠️ FIX: RecoverableSecurityException hereda de RuntimeException, no de SecurityException.
+            // Evaluamos de forma segura usando reflexiones condicionales de tipo en tiempo de ejecución.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                MediaActionResult.RequiresPermission(e.userAction.actionIntent.intentSender)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && e is SecurityException) {
+                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+                MediaActionResult.RequiresPermission(pendingIntent.intentSender)
+            } else {
+                MediaActionResult.Error(e.message ?: "Error al eliminar el archivo")
+            }
+        }
+    }
+
+    suspend fun updateSongMetadata(
+        uri: Uri,
+        title: String,
+        artist: String,
+        album: String
+    ): MediaActionResult = withContext(Dispatchers.IO) {
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.TITLE, title)
+            put(MediaStore.Audio.Media.ARTIST, artist)
+            put(MediaStore.Audio.Media.ALBUM, album)
+        }
+        try {
+            val rows = context.contentResolver.update(uri, values, null, null)
+            if (rows > 0) MediaActionResult.Success
+            else MediaActionResult.Error("No se pudo actualizar la canción")
+        } catch (e: Exception) {
+            // 🛠️ FIX: Igual que arriba, aseguramos la captura real en plataformas Android modernas.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                MediaActionResult.RequiresPermission(e.userAction.actionIntent.intentSender)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && e is SecurityException) {
+                val pendingIntent = MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
+                MediaActionResult.RequiresPermission(pendingIntent.intentSender)
+            } else {
+                MediaActionResult.Error(e.message ?: "Error al editar el archivo")
+            }
+        }
+    }
+
+    suspend fun forceDelete(uri: Uri): Unit = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.delete(uri, null, null)
+        } catch (_: Exception) {}
+    }
+
+    suspend fun forceUpdate(uri: Uri, title: String, artist: String, album: String): Unit = withContext(Dispatchers.IO) {
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.TITLE, title)
+            put(MediaStore.Audio.Media.ARTIST, artist)
+            put(MediaStore.Audio.Media.ALBUM, album)
+        }
+        try {
+            context.contentResolver.update(uri, values, null, null)
+        } catch (_: Exception) {}
     }
 }

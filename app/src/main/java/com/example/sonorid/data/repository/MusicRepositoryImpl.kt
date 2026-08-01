@@ -54,4 +54,11 @@ class MusicRepositoryImpl @Inject constructor(
             cachedForFolders = null
         }
     }
+
+    override suspend fun invalidateCache() {
+        cacheMutex.withLock {
+            cachedSongs = null
+            cachedForFolders = null
+        }
+    }
 }

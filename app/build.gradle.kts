@@ -53,6 +53,11 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.palette)
 
+    // WorkManager (descargas/tareas en segundo plano)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
     // Media3
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
