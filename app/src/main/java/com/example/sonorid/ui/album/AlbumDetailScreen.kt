@@ -35,6 +35,7 @@ import com.example.sonorid.ui.common.rememberDominantColor
 import com.example.sonorid.ui.playlists.AddToPlaylistSheet
 import com.example.sonorid.ui.theme.SonoridExtraShapes
 import com.example.sonorid.ui.theme.SonoridSpacing
+import com.example.sonorid.ui.theme.SonoridSizes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -252,8 +253,13 @@ private fun AlbumTrackRow(
             text = trackNumber.toString(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(28.dp),
+            modifier = Modifier.width(24.dp),
             textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.width(SonoridSpacing.Xs))
+        AlbumArt(
+            artUri = song.albumArtUri,
+            modifier = Modifier.size(SonoridSizes.SongRowArt)
         )
         Spacer(Modifier.width(SonoridSpacing.Sm))
         Column(modifier = Modifier.weight(1f)) {

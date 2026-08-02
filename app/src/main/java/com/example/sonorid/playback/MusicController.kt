@@ -57,6 +57,19 @@ class MusicController @Inject constructor(
         }, MoreExecutors.directExecutor())
     }
 
+    /** Reordena la cola: mueve el ítem de [fromIndex] a [toIndex], tanto en
+     * el reproductor real (ExoPlayer respeta el nuevo orden de reproducción)
+     * como en el estado local que ve la UI. */
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        val c = controller ?: return
+        if (fromIndex == toIndex) return
+        c.moveMediaItem(fromIndex, toIndex)
+        currentQueue = currentQueue.toMutableList().apply {
+            add(toIndex, removeAt(fromIndex))
+        }
+        _playbackState.value = _playbackState.value.copy(queue = currentQueue)
+    }
+
     private fun attachListener() {
         controller?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {

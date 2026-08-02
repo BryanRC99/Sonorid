@@ -13,4 +13,7 @@ interface LyricsDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: LyricsCacheEntity)
+
+    @Query("DELETE FROM lyrics_cache WHERE found = 0")
+    suspend fun clearNotFoundEntries()
 }

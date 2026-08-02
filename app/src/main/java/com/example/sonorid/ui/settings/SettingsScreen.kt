@@ -1,23 +1,19 @@
 // app/src/main/java/com/example/sonorid/ui/settings/SettingsScreen.kt
 package com.example.sonorid.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,9 +21,9 @@ import androidx.compose.ui.unit.sp
 import com.example.sonorid.ui.theme.SonoridSpacing
 
 /**
- * Rediseño minimalista: sin tarjetas moradas ni acentos de color en los
- * íconos (todo en escala de grises sobre negro), estilo lista plana con
- * divisores finos, similar a los ajustes de sistema de iOS/Android puro.
+ * Ajustes: lista plana sin fondos ni tarjetas por fila, coherente con el
+ * resto de la app (negro puro + acentos en blanco/gris). Las secciones
+ * se distinguen solo por su etiqueta y un divisor fino entre filas.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +31,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenFolders: () -> Unit,
     onOpenBulkLyrics: () -> Unit,
+    onOpenBulkMetadata: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenAbout: () -> Unit
 ) {
@@ -62,50 +59,52 @@ fun SettingsScreen(
             Spacer(Modifier.height(SonoridSpacing.Sm))
 
             SettingsSectionLabel("Biblioteca")
-            SettingsGroup {
-                SettingsRow(
-                    icon = Icons.Default.Folder,
-                    title = "Carpetas de música",
-                    subtitle = "Elige desde dónde se cargan tus canciones",
-                    onClick = onOpenFolders
-                )
-            }
+            SettingsRow(
+                icon = Icons.Default.Folder,
+                title = "Carpetas de música",
+                subtitle = "Elige desde dónde se cargan tus canciones",
+                onClick = onOpenFolders
+            )
 
             Spacer(Modifier.height(SonoridSpacing.Lg))
 
-            SettingsSectionLabel("Letras")
-            SettingsGroup {
-                SettingsRow(
-                    icon = Icons.Default.Download,
-                    title = "Descargar letras faltantes",
-                    subtitle = "Busca y guarda letras para toda tu biblioteca · requiere internet",
-                    onClick = onOpenBulkLyrics
-                )
-            }
+            SettingsSectionLabel("Letras y artistas")
+            SettingsRow(
+                icon = Icons.Default.Download,
+                title = "Descargar letras faltantes",
+                subtitle = "Busca y guarda letras para toda tu biblioteca · requiere internet",
+                onClick = onOpenBulkLyrics
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(start = 52.dp)
+            )
+            SettingsRow(
+                icon = Icons.Default.Person,
+                title = "Descargar metadatos de artistas",
+                subtitle = "Biografía, imagen y datos desde TheAudioDB · requiere internet",
+                onClick = onOpenBulkMetadata
+            )
 
             Spacer(Modifier.height(SonoridSpacing.Lg))
 
             SettingsSectionLabel("Datos")
-            SettingsGroup {
-                SettingsRow(
-                    icon = Icons.Default.SdStorage,
-                    title = "Copia de seguridad",
-                    subtitle = "Exporta o restaura tus listas y favoritos",
-                    onClick = onOpenBackup
-                )
-            }
+            SettingsRow(
+                icon = Icons.Default.SdStorage,
+                title = "Copia de seguridad",
+                subtitle = "Exporta o restaura tus listas y favoritos",
+                onClick = onOpenBackup
+            )
 
             Spacer(Modifier.height(SonoridSpacing.Lg))
 
             SettingsSectionLabel("Aplicación")
-            SettingsGroup {
-                SettingsRow(
-                    icon = Icons.Default.Info,
-                    title = "Acerca de",
-                    subtitle = "Créditos, código abierto y versión",
-                    onClick = onOpenAbout
-                )
-            }
+            SettingsRow(
+                icon = Icons.Default.Info,
+                title = "Acerca de",
+                subtitle = "Créditos, código abierto y versión",
+                onClick = onOpenAbout
+            )
 
             Spacer(Modifier.height(SonoridSpacing.Lg))
         }
@@ -126,18 +125,6 @@ private fun SettingsSectionLabel(text: String) {
     )
 }
 
-/** Grupo de filas sobre un fondo levemente distinto al background (surfaceContainer)
- * pero SIN esquinas grandes ni sombra: plano, discreto, como una sección de lista nativa. */
-@Composable
-private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer),
-        content = content
-    )
-}
-
 @Composable
 private fun SettingsRow(
     icon: ImageVector,
@@ -150,7 +137,7 @@ private fun SettingsRow(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Md),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
         Icon(
             icon,

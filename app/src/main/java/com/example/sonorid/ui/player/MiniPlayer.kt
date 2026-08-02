@@ -3,19 +3,21 @@ package com.example.sonorid.ui.player
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,7 +30,7 @@ import com.example.sonorid.ui.theme.SonoridSpacing
 
 /** Forma "acoplada": esquinas redondeadas solo arriba, para que se sienta
  *  una sola pieza junto con el navbar de abajo (no un elemento flotante). */
-private val DockedShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+private val DockedShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
 
 @Composable
 fun MiniPlayer(
@@ -36,6 +38,7 @@ fun MiniPlayer(
     progress: PlaybackProgress,
     onExpand: () -> Unit,
     onTogglePlayPause: () -> Unit,
+    onSkipPrevious: () -> Unit,
     onSkipNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -44,9 +47,13 @@ fun MiniPlayer(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 8.dp, shape = DockedShape)
             .clip(DockedShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                shape = DockedShape
+            )
             .clickable { onExpand() }
     ) {
         val progressFraction = if (progress.durationMs > 0) {
@@ -89,17 +96,43 @@ fun MiniPlayer(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(modifier = Modifier.width(SonoridSpacing.Xs))
-            IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(38.dp)) {
+            Spacer(modifier = Modifier.width(SonoridSpacing.Xxs))
+
+            // Secundario: gris sutil, para no competir con el botón de play.
+            IconButton(onClick = onSkipPrevious, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    Icons.Default.SkipPrevious,
+                    contentDescription = "Anterior",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Acción principal: círculo sólido blanco, icono negro. Igual jerarquía
+            // que en el reproductor expandido (ControlPillButton central).
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(onClick = onTogglePlayPause),
+                contentAlignment = Alignment.Center
+            ) {
                 Crossfade(targetState = state.isPlaying, label = "miniPlayPause") { playing ->
                     Icon(
                         if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Reproducir/Pausar"
+                        contentDescription = "Reproducir/Pausar",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
-            IconButton(onClick = onSkipNext, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.SkipNext, contentDescription = "Siguiente")
+
+            IconButton(onClick = onSkipNext, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = "Siguiente",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

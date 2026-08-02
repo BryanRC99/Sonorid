@@ -26,7 +26,11 @@ class ArtistInfoViewModel @Inject constructor(
         if (artistName in requested) return
         requested += artistName
         viewModelScope.launch {
-            val info = repository.getArtistInfo(artistName)
+            val info = try {
+                repository.getArtistInfo(artistName)
+            } catch (e: Exception) {
+                null
+            }
             _infoMap.value = _infoMap.value + (artistName to info)
         }
     }

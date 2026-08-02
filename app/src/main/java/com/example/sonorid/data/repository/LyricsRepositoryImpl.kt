@@ -1,6 +1,7 @@
 // app/src/main/java/com/example/sonorid/data/repository/LyricsRepositoryImpl.kt
 package com.example.sonorid.data.repository
 
+import android.util.Log
 import com.example.sonorid.data.local.db.LyricsCacheEntity
 import com.example.sonorid.data.local.db.LyricsDao
 import com.example.sonorid.data.remote.LrcLibApi
@@ -50,6 +51,9 @@ class LyricsRepositoryImpl @Inject constructor(
                 )
             }
         } catch (e: HttpException) {
+            // Loguea el código HTTP exacto para identificar bloqueos (403, 429, etc.)
+            Log.e("LyricsRepo", "HTTP ${e.code()} para ${song.title}", e)
+
             if (e.code() == 404) {
                 // LRCLIB confirma que esta canción no tiene letra: cachea para no reintentar.
                 lyricsDao.upsert(
@@ -64,7 +68,8 @@ class LyricsRepositoryImpl @Inject constructor(
             }
             null
         } catch (e: Exception) {
-            // Error de red u otro: NO cachea, para poder reintentar la próxima vez.
+            // Loguea errores genéricos de red (UnknownHostException, SocketTimeoutException, etc.)
+            Log.e("LyricsRepo", "Error de red para ${song.title}", e)
             null
         }
     }

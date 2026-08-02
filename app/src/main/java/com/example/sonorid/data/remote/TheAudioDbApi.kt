@@ -16,8 +16,13 @@ data class TheAudioDbArtist(
     @SerialName("strArtist") val name: String? = null,
     @SerialName("strArtistThumb") val thumbUrl: String? = null,
     @SerialName("strArtistFanart") val fanartUrl: String? = null,
+    @SerialName("strArtistBanner") val bannerUrl: String? = null,
     @SerialName("strGenre") val genre: String? = null,
-    @SerialName("strBiographyEN") val biography: String? = null
+    @SerialName("strStyle") val style: String? = null,
+    @SerialName("intFormedYear") val formedYear: String? = null,
+    @SerialName("strCountry") val country: String? = null,
+    @SerialName("strBiographyES") val biographyEs: String? = null,
+    @SerialName("strBiography") val biographyEn: String? = null
 )
 
 interface TheAudioDbApi {

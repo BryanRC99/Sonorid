@@ -36,6 +36,8 @@ import com.example.sonorid.ui.common.colorForName
 import com.example.sonorid.ui.common.rememberDominantColor
 import com.example.sonorid.ui.playlists.AddToPlaylistSheet
 import com.example.sonorid.ui.theme.SonoridSpacing
+import com.example.sonorid.ui.common.AlbumArt
+import com.example.sonorid.ui.theme.SonoridSizes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,11 +73,26 @@ fun ArtistDetailScreen(
                     ArtistHeader(
                         artistName = artistName,
                         imageUrl = artistInfo?.imageUrl,
+                        bannerUrl = artistInfo?.bannerUrl,
                         genre = artistInfo?.genre,
+                        style = artistInfo?.style,
+                        country = artistInfo?.country,
+                        formedYear = artistInfo?.formedYear,
                         songCount = songs.size,
                         onPlay = { if (songs.isNotEmpty()) onSongClick(songs, 0) },
                         onShuffle = { if (songs.isNotEmpty()) onSongClick(songs.shuffled(), 0) }
                     )
+                }
+                item {
+                    val biography = artistInfo?.biography
+                    if (!biography.isNullOrBlank()) {
+                        ArtistBiographySection(biography = biography)
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(horizontal = SonoridSpacing.Lg)
+                        )
+                        Spacer(Modifier.height(SonoridSpacing.Sm))
+                    }
                 }
                 items(songs, key = { it.id }) { song ->
                     val index = songs.indexOf(song)
@@ -128,7 +145,11 @@ fun ArtistDetailScreen(
 private fun ArtistHeader(
     artistName: String,
     imageUrl: String?,
+    bannerUrl: String?,
     genre: String?,
+    style: String?,
+    country: String?,
+    formedYear: String?,
     songCount: Int,
     onPlay: () -> Unit,
     onShuffle: () -> Unit
@@ -141,17 +162,66 @@ private fun ArtistHeader(
         label = "artistScrimColor"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(animatedScrim.copy(alpha = 0.55f), backgroundColor),
-                    startY = 0f,
-                    endY = Offset.Infinite.y
-                )
+    // Solo se acepta el banner como hero si su proporción real es
+    // "ancha" de verdad (>= 3:1). Muchos banners subidos por la comunidad
+    // son en realidad logos o fotos verticales mal etiquetadas, que se ven
+    // rotas o compiten con el avatar — se detecta y se descarta automático.
+    var isValidBannerRatio by remember(bannerUrl) { mutableStateOf<Boolean?>(null) }
+    val useBanner = !bannerUrl.isNullOrBlank() && isValidBannerRatio != false
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (!bannerUrl.isNullOrBlank()) {
+            coil.compose.SubcomposeAsyncImage(
+                model = bannerUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .then(if (isValidBannerRatio == false) Modifier.size(0.dp) else Modifier),
+                onSuccess = { state ->
+                    val size = state.painter.intrinsicSize
+                    val ratio = if (size.height > 0) size.width / size.height else 0f
+                    isValidBannerRatio = ratio >= 3f
+                },
+                onError = { isValidBannerRatio = false },
+                loading = {}
             )
-    ) {
+        }
+
+        if (useBanner) {
+            // Scrim doble: oscurece tanto arriba (para que el avatar no
+            // compita con lo que haya detrás) como abajo (para legibilidad
+            // del texto), en vez de solo degradar hacia el fondo.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.15f),
+                                backgroundColor
+                            )
+                        )
+                    )
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(animatedScrim.copy(alpha = 0.55f), backgroundColor),
+                            startY = 0f,
+                            endY = Offset.Infinite.y
+                        )
+                    )
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -191,6 +261,24 @@ private fun ArtistHeader(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            val extraInfo = listOfNotNull(
+                country,
+                formedYear?.let { "Desde $it" },
+                style?.takeIf { it != genre }
+            ).joinToString(" · ")
+            if (extraInfo.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = extraInfo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             Spacer(Modifier.height(SonoridSpacing.Md))
 
             Row(
@@ -225,6 +313,47 @@ private fun ArtistHeader(
 }
 
 @Composable
+private fun ArtistBiographySection(biography: String) {
+    var expanded by remember(biography) { mutableStateOf(false) }
+    var isOverflowing by remember(biography) { mutableStateOf(false) }
+    val collapsedMaxLines = 5
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm)
+    ) {
+        Text(
+            text = "Biografía",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(SonoridSpacing.Xs))
+        Text(
+            text = biography,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else collapsedMaxLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result ->
+                if (!expanded) isOverflowing = result.hasVisualOverflow
+            }
+        )
+        if (isOverflowing || expanded) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (expanded) "Ver menos" else "Ver más",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable { expanded = !expanded }
+            )
+        }
+    }
+}
+
+@Composable
 private fun ArtistSongRow(
     song: Song,
     isFavorite: Boolean,
@@ -239,6 +368,11 @@ private fun ArtistSongRow(
             .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        AlbumArt(
+            artUri = song.albumArtUri,
+            modifier = Modifier.size(SonoridSizes.SongRowArt)
+        )
+        Spacer(Modifier.width(SonoridSpacing.Sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 song.title,

@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.sonorid.ui.theme.SonoridExtraShapes
 
 @Composable
 fun SongOverflowMenu(
@@ -40,9 +41,21 @@ fun SongOverflowMenu(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = SonoridExtraShapes.menu,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            shadowElevation = 6.dp
+        ) {
             DropdownMenuItem(
-                text = { Text(if (isFavorite) "Quitar de favoritos" else "Agregar a favoritos") },
+                text = {
+                    Text(
+                        if (isFavorite) "Quitar de favoritos" else "Agregar a favoritos",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -57,8 +70,19 @@ fun SongOverflowMenu(
                 }
             )
             DropdownMenuItem(
-                text = { Text("Añadir a lista de reproducción") },
-                leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null) },
+                text = {
+                    Text(
+                        "Añadir a lista de reproducción",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.PlaylistAdd,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
                 onClick = {
                     expanded = false
                     onAddToPlaylist()

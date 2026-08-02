@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/sonorid/ui/theme/Shape.kt
 package com.example.sonorid.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,4 +19,5 @@ object SonoridExtraShapes {
     val albumArtLarge = RoundedCornerShape(20.dp)
     val pill = RoundedCornerShape(50)
     val bottomSheetTop = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    val menu = RoundedCornerShape(16.dp)
 }

@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import com.example.sonorid.playback.PlaybackMetaState
@@ -150,6 +151,7 @@ fun MainScreen(
                             onBack = { rootNav.popBackStack() },
                             onOpenFolders = { rootNav.navigate("folders") },
                             onOpenBulkLyrics = { rootNav.navigate("bulk_lyrics") },
+                            onOpenBulkMetadata = { rootNav.navigate("bulk_metadata") },
                             onOpenBackup = { rootNav.navigate("backup") },
                             onOpenAbout = { rootNav.navigate("about") }
                         )
@@ -164,6 +166,10 @@ fun MainScreen(
 
                     composable("bulk_lyrics") {
                         BulkLyricsScreen(onBack = { rootNav.popBackStack() })
+                    }
+
+                    composable("bulk_metadata") {
+                        com.example.sonorid.ui.settings.BulkMetadataScreen(onBack = { rootNav.popBackStack() })
                     }
 
                     composable("backup") {
@@ -245,6 +251,8 @@ fun MainScreen(
 
 /** Barra superior de Inicio: solo búsqueda y ajustes, sin título, con botones
  * circulares consistentes con la referencia (fondo surfaceContainerHigh). */
+/** Barra superior de Inicio: solo búsqueda y ajustes, sin título, con íconos
+ * simples (sin fondo circular) para que la barra ocupe menos espacio visual. */
 @Composable
 private fun SonoridAppTopBar(
     onOpenSearch: () -> Unit,
@@ -255,8 +263,8 @@ private fun SonoridAppTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Sm)
-                .height(48.dp),
+                .padding(horizontal = SonoridSpacing.Sm, vertical = SonoridSpacing.Xs)
+                .height(36.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -272,19 +280,12 @@ private fun TopBarIconButton(
     contentDescription: String,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
+    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
         Icon(
             icon,
             contentDescription = contentDescription,
             tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(22.dp)
         )
     }
 }
@@ -295,8 +296,11 @@ private fun SonoridBottomBar(
     onTabSelected: (Tab) -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+        )
     ) {
         Row(
             modifier = Modifier
@@ -335,5 +339,13 @@ private fun MiniPlayerWithProgress(
     playerViewModel: PlayerViewModel
 ) {
     val progress by playerViewModel.progress.collectAsState()
-    MiniPlayer(state, progress, onExpand, onTogglePlayPause, onSkipNext, modifier)
+    MiniPlayer(
+        state = state,
+        progress = progress,
+        onExpand = onExpand,
+        onTogglePlayPause = onTogglePlayPause,
+        onSkipPrevious = { playerViewModel.skipPrevious() },
+        onSkipNext = onSkipNext,
+        modifier = modifier
+    )
 }

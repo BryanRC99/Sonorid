@@ -1,30 +1,44 @@
 // app/src/main/java/com/example/sonorid/ui/player/SongOptionsMenu.kt
 package com.example.sonorid.ui.player
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.ui.common.AlbumArt
+import com.example.sonorid.ui.theme.SonoridExtraShapes
 import com.example.sonorid.ui.theme.SonoridSpacing
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+
 
 /** Botón de tres puntos + menú desplegable con las acciones de la canción. */
 @Composable
@@ -41,42 +55,66 @@ fun SongOverflowButton(
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Default.MoreVert, contentDescription = "Más opciones")
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = "Más opciones",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = SonoridExtraShapes.menu,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 0.dp,
+            shadowElevation = 6.dp
+        ) {
             DropdownMenuItem(
-                text = { Text("Añadir a la cola") },
-                leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) },
+                text = { Text("Añadir a la cola", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = {
+                    Icon(Icons.Default.QueueMusic, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
                 onClick = { expanded = false; onAddToQueue() }
             )
             DropdownMenuItem(
-                text = { Text("Añadir a lista de reproducción") },
-                leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null) },
+                text = { Text("Añadir a lista de reproducción", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = {
+                    Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
                 onClick = { expanded = false; onAddToPlaylist() }
             )
             DropdownMenuItem(
-                text = { Text(if (isFavorite) "Quitar de favoritos" else "Añadir a favoritos") },
+                text = {
+                    Text(
+                        if (isFavorite) "Quitar de favoritos" else "Añadir a favoritos",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
                 leadingIcon = {
                     Icon(
                         if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = null,
-                        tint = if (isFavorite) MaterialTheme.colorScheme.tertiary else LocalContentColor.current
+                        tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 onClick = { expanded = false; onToggleFavorite() }
             )
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             DropdownMenuItem(
-                text = { Text("Editar información") },
-                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                text = { Text("Editar información", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
                 onClick = { expanded = false; onEditInfo() }
             )
             DropdownMenuItem(
-                text = { Text("Detalles de la canción") },
-                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                text = { Text("Detalles de la canción", color = MaterialTheme.colorScheme.onSurface) },
+                leadingIcon = {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
                 onClick = { expanded = false; onShowDetails() }
             )
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             DropdownMenuItem(
                 text = { Text("Eliminar archivo", color = MaterialTheme.colorScheme.error) },
                 leadingIcon = {
@@ -209,20 +247,59 @@ fun DeleteSongConfirmDialog(
     )
 }
 
+/**
+ * Hoja de la cola de reproducción: muestra carátula de cada canción y
+ * permite reordenar arrastrando desde el handle de la derecha (Spotify-like),
+ * usando la librería Reorderable para animación y auto-scroll.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueSheet(
     queue: List<Song>,
     currentSongId: Long?,
     onDismiss: () -> Unit,
-    onSelect: (Int) -> Unit
+    onSelect: (Int) -> Unit,
+    onMove: (from: Int, to: Int) -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(
-            "Cola de reproducción",
-            style = MaterialTheme.typography.titleMedium,
+    val lazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        onMove(from.index, to.index)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = SonoridExtraShapes.bottomSheetTop,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = SonoridSpacing.Sm)
+                    .size(width = 32.dp, height = 4.dp)
+                    .background(
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        RoundedCornerShape(50)
+                    )
+            )
+        }
+    ) {
+        Column(
             modifier = Modifier.padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Sm)
-        )
+        ) {
+            Text(
+                "Cola de reproducción",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (queue.isNotEmpty()) {
+                Text(
+                    "${queue.size} canciones · mantén y arrastra para reordenar",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         if (queue.isEmpty()) {
             Text(
                 "La cola está vacía",
@@ -231,38 +308,85 @@ fun QueueSheet(
                 modifier = Modifier.padding(SonoridSpacing.Md)
             )
         }
-        LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+
+        LazyColumn(state = lazyListState, modifier = Modifier.heightIn(max = 420.dp)) {
             itemsIndexed(queue, key = { _, song -> song.id }) { index, song ->
-                val isCurrent = song.id == currentSongId
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelect(index); onDismiss() }
-                        .padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Sm),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        if (isCurrent) Icons.Default.Equalizer else Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(SonoridSpacing.Sm))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            song.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            song.artist,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                ReorderableItem(reorderableState, key = song.id) { isDragging ->
+                    val isCurrent = song.id == currentSongId
+                    val rowShape = RoundedCornerShape(14.dp)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SonoridSpacing.Sm, vertical = 3.dp)
+                            .clip(rowShape)
+                            .background(
+                                if (isDragging) MaterialTheme.colorScheme.surfaceContainerHigh
+                                else MaterialTheme.colorScheme.surfaceContainer
+                            )
+                            .then(
+                                if (isDragging) {
+                                    Modifier.border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                        shape = rowShape
+                                    )
+                                } else Modifier
+                            )
+                            .clickable { onSelect(index); onDismiss() }
+                            .padding(horizontal = SonoridSpacing.Sm, vertical = SonoridSpacing.Xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            AlbumArt(
+                                artUri = song.albumArtUri,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            if (isCurrent) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clip(SonoridExtraShapes.albumArt)
+                                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Equalizer,
+                                        contentDescription = "Reproduciendo",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(SonoridSpacing.Sm))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                song.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                song.artist,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(Modifier.width(SonoridSpacing.Xs))
+
+                        Icon(
+                            Icons.Default.DragHandle,
+                            contentDescription = "Reordenar",
+                            tint = if (isDragging) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .draggableHandle()
                         )
                     }
                 }

@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonorid.domain.model.Song
@@ -52,6 +53,21 @@ fun SongsTabScreen(
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item { GreetingHeader() }
+
+                item {
+                    Text(
+                        text = "Canciones",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(
+                            horizontal = SonoridSpacing.Lg,
+                            vertical = SonoridSpacing.Sm
+                        )
+                    )
+                }
+
                 itemsIndexed(
                     items = songs,
                     key = { _, song -> song.id }

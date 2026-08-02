@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="sonorid_background">#FF0A0A0C</color>
-    <color name="sonorid_surface">#FF141417</color>
-    <color name="sonorid_primary">#FF8B5CF6</color>
+    <color name="sonorid_background">#FF0A0A0A</color>
+    <color name="sonorid_surface">#FF131313</color>
+    <color name="sonorid_primary">#FFF5F5F5</color>
 </resources>

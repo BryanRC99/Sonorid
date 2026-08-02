@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/sonorid/ui/settings/BulkMetadataScreen.kt
 package com.example.sonorid.ui.settings
 
 import androidx.compose.foundation.background
@@ -9,9 +10,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
@@ -27,11 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.work.WorkInfo
 import com.example.sonorid.ui.theme.SonoridSpacing
-import com.example.sonorid.worker.LyricsDownloadWorker
+import com.example.sonorid.worker.ArtistMetadataDownloadWorker
 
-private enum class UiPhase { IDLE, RUNNING, FINISHED, CANCELLED, NO_INTERNET, ERROR }
+private enum class MetadataUiPhase { IDLE, RUNNING, FINISHED, CANCELLED, NO_INTERNET, RATE_LIMITED }
 
-private data class UiProgress(
+private data class MetadataUiProgress(
     val index: Int = 0,
     val total: Int = 0,
     val title: String = "",
@@ -43,9 +44,9 @@ private data class UiProgress(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulkLyricsScreen(
+fun BulkMetadataScreen(
     onBack: () -> Unit,
-    viewModel: BulkLyricsViewModel = hiltViewModel()
+    viewModel: BulkMetadataViewModel = hiltViewModel()
 ) {
     val info by viewModel.workInfo.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
@@ -54,23 +55,19 @@ fun BulkLyricsScreen(
 
     val phase = remember(info) {
         when (info?.state) {
-            null -> UiPhase.IDLE
-            WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING -> UiPhase.RUNNING
-            WorkInfo.State.SUCCEEDED -> UiPhase.FINISHED
-            WorkInfo.State.CANCELLED -> UiPhase.CANCELLED
+            null -> MetadataUiPhase.IDLE
+            WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING -> MetadataUiPhase.RUNNING
+            WorkInfo.State.SUCCEEDED -> MetadataUiPhase.FINISHED
+            WorkInfo.State.CANCELLED -> MetadataUiPhase.CANCELLED
             WorkInfo.State.FAILED -> {
                 when {
-                    info?.outputData?.getBoolean(LyricsDownloadWorker.KEY_NO_INTERNET, false) == true -> UiPhase.NO_INTERNET
-                    !info?.outputData?.getString(LyricsDownloadWorker.KEY_ERROR).isNullOrBlank() -> UiPhase.ERROR
-                    else -> UiPhase.CANCELLED
+                    info?.outputData?.getBoolean(ArtistMetadataDownloadWorker.KEY_NO_INTERNET, false) == true -> MetadataUiPhase.NO_INTERNET
+                    info?.outputData?.getBoolean(ArtistMetadataDownloadWorker.KEY_RATE_LIMITED, false) == true -> MetadataUiPhase.RATE_LIMITED
+                    else -> MetadataUiPhase.CANCELLED
                 }
             }
-            WorkInfo.State.BLOCKED -> UiPhase.RUNNING
+            WorkInfo.State.BLOCKED -> MetadataUiPhase.RUNNING
         }
-    }
-
-    val errorMessage = remember(info) {
-        info?.outputData?.getString(LyricsDownloadWorker.KEY_ERROR)
     }
 
     val progress = remember(info) {
@@ -79,19 +76,19 @@ fun BulkLyricsScreen(
             WorkInfo.State.SUCCEEDED, WorkInfo.State.FAILED -> info?.outputData
             else -> null
         }
-        UiProgress(
-            index = data?.getInt(LyricsDownloadWorker.KEY_INDEX, 0) ?: 0,
-            total = data?.getInt(LyricsDownloadWorker.KEY_TOTAL, 0) ?: 0,
-            title = data?.getString(LyricsDownloadWorker.KEY_TITLE) ?: "",
-            found = data?.getInt(LyricsDownloadWorker.KEY_FOUND, 0) ?: 0,
-            notFound = data?.getInt(LyricsDownloadWorker.KEY_NOT_FOUND, 0) ?: 0
+        MetadataUiProgress(
+            index = data?.getInt(ArtistMetadataDownloadWorker.KEY_INDEX, 0) ?: 0,
+            total = data?.getInt(ArtistMetadataDownloadWorker.KEY_TOTAL, 0) ?: 0,
+            title = data?.getString(ArtistMetadataDownloadWorker.KEY_TITLE) ?: "",
+            found = data?.getInt(ArtistMetadataDownloadWorker.KEY_FOUND, 0) ?: 0,
+            notFound = data?.getInt(ArtistMetadataDownloadWorker.KEY_NOT_FOUND, 0) ?: 0
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Descargar letras") },
+                title = { Text("Descargar metadatos") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
@@ -112,18 +109,18 @@ fun BulkLyricsScreen(
             Spacer(Modifier.height(SonoridSpacing.Xl))
 
             when (phase) {
-                UiPhase.RUNNING -> RunningState(progress)
-                UiPhase.FINISHED -> FinishedState(progress)
-                UiPhase.CANCELLED -> CancelledState()
-                UiPhase.NO_INTERNET -> NoInternetState(onRetry = { viewModel.refreshConnectivity() })
-                UiPhase.ERROR -> ErrorState(errorMessage = errorMessage)
-                UiPhase.IDLE -> IdleState(isConnected = isConnected)
+                MetadataUiPhase.RUNNING -> RunningState(progress)
+                MetadataUiPhase.FINISHED -> FinishedState(progress)
+                MetadataUiPhase.CANCELLED -> CancelledState()
+                MetadataUiPhase.NO_INTERNET -> NoInternetState(onRetry = { viewModel.refreshConnectivity() })
+                MetadataUiPhase.RATE_LIMITED -> RateLimitedState()
+                MetadataUiPhase.IDLE -> IdleState(isConnected = isConnected)
             }
 
             Spacer(Modifier.weight(1f))
 
             when (phase) {
-                UiPhase.IDLE, UiPhase.FINISHED, UiPhase.CANCELLED, UiPhase.NO_INTERNET, UiPhase.ERROR -> {
+                MetadataUiPhase.IDLE, MetadataUiPhase.FINISHED, MetadataUiPhase.CANCELLED, MetadataUiPhase.NO_INTERNET, MetadataUiPhase.RATE_LIMITED -> {
                     Button(
                         onClick = { viewModel.start() },
                         enabled = isConnected,
@@ -135,14 +132,13 @@ fun BulkLyricsScreen(
                         Text(
                             when {
                                 !isConnected -> "Sin conexión a internet"
-                                phase == UiPhase.FINISHED || phase == UiPhase.CANCELLED -> "Volver a buscar"
-                                phase == UiPhase.ERROR -> "Volver a intentar"
+                                phase == MetadataUiPhase.FINISHED || phase == MetadataUiPhase.CANCELLED || phase == MetadataUiPhase.RATE_LIMITED -> "Volver a intentar"
                                 else -> "Iniciar descarga"
                             }
                         )
                     }
                 }
-                UiPhase.RUNNING -> {
+                MetadataUiPhase.RUNNING -> {
                     OutlinedButton(
                         onClick = { viewModel.cancel() },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -160,18 +156,18 @@ fun BulkLyricsScreen(
 
 @Composable
 private fun IdleState(isConnected: Boolean) {
-    IconBadge(icon = Icons.Default.Lyrics)
+    IconBadge(icon = Icons.Default.Person)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text(
-        "Buscar letras para toda tu biblioteca",
+        "Descargar datos de tus artistas",
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
         textAlign = TextAlign.Center
     )
     Spacer(Modifier.height(SonoridSpacing.Sm))
     Text(
-        "Sonorid revisará cada canción de tu biblioteca y guardará su letra sincronizada localmente. " +
-                "Las canciones que ya tienen letra guardada se omiten automáticamente.",
+        "Sonorid consultará TheAudioDB para cada artista de tu biblioteca y guardará su imagen, " +
+                "biografía, género y país. Los artistas que ya tienen datos guardados se omiten automáticamente.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -196,7 +192,7 @@ private fun IdleState(isConnected: Boolean) {
 }
 
 @Composable
-private fun RunningState(progress: UiProgress) {
+private fun RunningState(progress: MetadataUiProgress) {
     Spacer(Modifier.height(SonoridSpacing.Xl))
     Box(contentAlignment = Alignment.Center) {
         CircularProgressIndicator(
@@ -210,7 +206,7 @@ private fun RunningState(progress: UiProgress) {
     }
     Spacer(Modifier.height(SonoridSpacing.Lg))
     Text(
-        if (progress.total > 0) "${progress.index} de ${progress.total} canciones" else "Preparando…",
+        if (progress.total > 0) "${progress.index} de ${progress.total} artistas" else "Preparando…",
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.SemiBold
     )
@@ -224,8 +220,8 @@ private fun RunningState(progress: UiProgress) {
     )
     Spacer(Modifier.height(SonoridSpacing.Lg))
     Row(horizontalArrangement = Arrangement.spacedBy(SonoridSpacing.Xl)) {
-        StatColumn(label = "Encontradas", value = progress.found.toString())
-        StatColumn(label = "Sin letra", value = progress.notFound.toString())
+        StatColumn(label = "Encontrados", value = progress.found.toString())
+        StatColumn(label = "Sin datos", value = progress.notFound.toString())
     }
     Spacer(Modifier.height(SonoridSpacing.Lg))
     InfoStrip(
@@ -235,21 +231,21 @@ private fun RunningState(progress: UiProgress) {
 }
 
 @Composable
-private fun FinishedState(progress: UiProgress) {
+private fun FinishedState(progress: MetadataUiProgress) {
     IconBadge(icon = Icons.Default.CheckCircle)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text("Descarga completada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
     Text(
-        "Se revisaron ${progress.total} canciones.",
+        "Se revisaron ${progress.total} artistas.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
     )
     Spacer(Modifier.height(SonoridSpacing.Lg))
     Row(horizontalArrangement = Arrangement.spacedBy(SonoridSpacing.Xl)) {
-        StatColumn(label = "Encontradas", value = progress.found.toString())
-        StatColumn(label = "Sin letra", value = progress.notFound.toString())
+        StatColumn(label = "Encontrados", value = progress.found.toString())
+        StatColumn(label = "Sin datos", value = progress.notFound.toString())
     }
 }
 
@@ -260,8 +256,8 @@ private fun CancelledState() {
     Text("Descarga cancelada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
     Text(
-        "Lo que ya se descargó quedó guardado. Puedes retomarlo cuando quieras: las canciones que " +
-                "ya tienen letra se omiten automáticamente.",
+        "Lo que ya se descargó quedó guardado. Puedes retomarlo cuando quieras: los artistas que " +
+                "ya tienen datos se omiten automáticamente.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -290,27 +286,17 @@ private fun NoInternetState(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun ErrorState(errorMessage: String?) {
-    IconBadge(icon = Icons.Default.ErrorOutline)
+private fun RateLimitedState() {
+    IconBadge(icon = Icons.Default.HourglassEmpty)
     Spacer(Modifier.height(SonoridSpacing.Md))
-    Text(
-        "Ocurrió un error inesperado",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.error
-    )
+    Text("Demasiadas peticiones", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
     Text(
-        "Detalle de la excepción:",
-        style = MaterialTheme.typography.bodySmall,
+        "TheAudioDB limita cuántas veces se puede consultar por minuto y se alcanzó ese límite. " +
+                "Lo ya descargado quedó guardado. Espera unos minutos y vuelve a intentarlo.",
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
-    )
-    Spacer(Modifier.height(SonoridSpacing.Xs))
-    InfoStrip(
-        icon = Icons.Default.ErrorOutline,
-        text = errorMessage ?: "Error desconocido en la ejecución del Worker",
-        isError = true
     )
 }
 

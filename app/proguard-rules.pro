@@ -12,6 +12,17 @@
 -keep class androidx.hilt.work.** { *; }
 -keep interface androidx.hilt.work.** { *; }
 
+# =========================================================
+# WorkManager: clases internas de la librería que necesita
+# instanciar por reflexión (InputMerger, etc.) — sin esto
+# falla "Could not create Input Merger" y el Worker nunca
+# llega a ejecutarse, mostrando "descarga cancelada" al instante.
+# =========================================================
+-keep class androidx.work.** { *; }
+-keep class * extends androidx.work.InputMerger {
+    public <init>();
+}
+
 # Clases generadas por Hilt (Dagger) para inyección de dependencias
 -keep class dagger.hilt.** { *; }
 -keep class dagger.internal.** { *; }
@@ -25,6 +36,11 @@
     @dagger.assisted.AssistedInject <init>(...);
 }
 -keep @dagger.assisted.AssistedFactory interface *
+
+-keep class * implements androidx.hilt.work.WorkerAssistedFactory { *; }
+-keep class **_HiltModule { *; }
+-keep class **_HiltModule$* { *; }
+-keep class **_AssistedFactory { *; }
 
 # =========================================================
 # kotlinx.serialization (usado en el backup .json)

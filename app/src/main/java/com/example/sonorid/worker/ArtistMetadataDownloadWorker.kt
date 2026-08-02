@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/sonorid/worker/ArtistMetadataDownloadWorker.kt
 package com.example.sonorid.worker
 
 import android.Manifest
@@ -14,7 +15,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.sonorid.MainActivity
-import com.example.sonorid.data.repository.LyricsRepositoryImpl
+import com.example.sonorid.data.repository.ArtistInfoRepository
+import com.example.sonorid.data.repository.RateLimitException
 import com.example.sonorid.domain.repository.MusicRepository
 import com.example.sonorid.util.NotificationChannels
 import com.example.sonorid.util.NetworkStatus
@@ -22,32 +24,33 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
 /**
- * Descarga letras para toda la biblioteca en segundo plano usando WorkManager.
- * Sigue corriendo aunque el usuario navegue a otra pantalla, y muestra UNA
- * notificación al terminar (no usa servicio en primer plano: eso requiere
- * declarar tipos de servicio y maneja restricciones de fondo muy sensibles
- * en Android 13/14+, y un mal uso ahí puede tumbar el proceso en vez de
- * simplemente fallar el Worker. Para una tarea de red de duración moderada
- * como esta, un Worker normal es suficiente y mucho más robusto).
+ * Descarga metadatos de artista (imagen, biografía, banner, género, país,
+ * año de formación) para toda la biblioteca, en segundo plano. Sigue el
+ * mismo patrón que LyricsDownloadWorker: cachea en Room para no repetir
+ * peticiones, y se detiene con un motivo claro si se pierde internet o
+ * si TheAudioDB responde 429 (límite de peticiones alcanzado).
  */
 @HiltWorker
-class LyricsDownloadWorker @AssistedInject constructor(
+class ArtistMetadataDownloadWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val musicRepository: MusicRepository,
-    private val lyricsRepository: LyricsRepositoryImpl
+    private val artistInfoRepository: ArtistInfoRepository
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         return try {
-            val songs = musicRepository.getAllSongs()
-            val total = songs.size
+            val artists = musicRepository.getAllSongs()
+                .map { it.artist }
+                .distinct()
+                .filter { it.isNotBlank() }
+            val total = artists.size
             var found = 0
             var notFound = 0
 
             setProgress(workDataOf(KEY_INDEX to 0, KEY_TOTAL to total, KEY_TITLE to ""))
 
-            for ((index, song) in songs.withIndex()) {
+            for ((index, artistName) in artists.withIndex()) {
                 if (!NetworkStatus.isConnected(applicationContext)) {
                     return Result.failure(
                         workDataOf(
@@ -64,14 +67,26 @@ class LyricsDownloadWorker @AssistedInject constructor(
                     workDataOf(
                         KEY_INDEX to index,
                         KEY_TOTAL to total,
-                        KEY_TITLE to song.title,
+                        KEY_TITLE to artistName,
                         KEY_FOUND to found,
                         KEY_NOT_FOUND to notFound
                     )
                 )
 
-                val lyrics = lyricsRepository.getLyrics(song) // ya cachea: saltea lo ya descargado
-                if (lyrics != null) found++ else notFound++
+                try {
+                    val info = artistInfoRepository.getArtistInfo(artistName)
+                    if (info != null) found++ else notFound++
+                } catch (e: RateLimitException) {
+                    return Result.failure(
+                        workDataOf(
+                            KEY_RATE_LIMITED to true,
+                            KEY_INDEX to index,
+                            KEY_TOTAL to total,
+                            KEY_FOUND to found,
+                            KEY_NOT_FOUND to notFound
+                        )
+                    )
+                }
             }
 
             showCompletionNotification(found, notFound, total)
@@ -85,8 +100,7 @@ class LyricsDownloadWorker @AssistedInject constructor(
                 )
             )
         } catch (e: Exception) {
-            android.util.Log.e("LyricsDownloadWorker", "Fallo en doWork", e)
-            Result.failure(workDataOf(KEY_ERROR to (e.message ?: e.toString())))
+            Result.failure(workDataOf(KEY_ERROR to (e.message ?: "Error desconocido")))
         }
     }
 
@@ -102,9 +116,9 @@ class LyricsDownloadWorker @AssistedInject constructor(
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.LYRICS_DOWNLOAD_CHANNEL_ID)
-            .setContentTitle("Descarga de letras completada")
-            .setContentText("$found encontradas de $total canciones revisadas")
+        val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.METADATA_DOWNLOAD_CHANNEL_ID)
+            .setContentTitle("Descarga de metadatos completada")
+            .setContentText("$found artistas encontrados de $total revisados")
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent)
@@ -114,14 +128,15 @@ class LyricsDownloadWorker @AssistedInject constructor(
     }
 
     companion object {
-        const val WORK_NAME = "bulk_lyrics_download"
+        const val WORK_NAME = "bulk_metadata_download"
         const val KEY_INDEX = "index"
         const val KEY_TOTAL = "total"
         const val KEY_TITLE = "title"
         const val KEY_FOUND = "found"
         const val KEY_NOT_FOUND = "not_found"
         const val KEY_NO_INTERNET = "no_internet"
+        const val KEY_RATE_LIMITED = "rate_limited"
         const val KEY_ERROR = "error"
-        private const val NOTIFICATION_DONE_ID = 4202
+        private const val NOTIFICATION_DONE_ID = 4203
     }
 }

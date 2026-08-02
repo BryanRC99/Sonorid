@@ -83,6 +83,8 @@ class PlayerViewModel @Inject constructor(
     fun seekToQueueItem(index: Int) = musicController.seekToQueueItem(index)
     fun addToQueue(song: Song) = musicController.addToQueue(song)
 
+    fun moveQueueItem(from: Int, to: Int) = musicController.moveQueueItem(from, to)
+
     fun toggleFavorite(songId: Long) {
         viewModelScope.launch { favoritesRepository.toggleFavorite(songId) }
     }

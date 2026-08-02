@@ -337,7 +337,8 @@ fun ExpandedPlayerScreen(
             queue = state.queue,
             currentSongId = song.id,
             onDismiss = { showQueueSheet = false },
-            onSelect = { index -> playerViewModel.seekToQueueItem(index) }
+            onSelect = { index -> playerViewModel.seekToQueueItem(index) },
+            onMove = { from, to -> playerViewModel.moveQueueItem(from, to) }
         )
     }
 }

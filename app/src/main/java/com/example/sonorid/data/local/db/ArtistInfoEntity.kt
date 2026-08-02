@@ -10,6 +10,10 @@ data class ArtistInfoEntity(
     val imageUrl: String?,
     val genre: String?,
     val biography: String?,
-    val found: Boolean, // false = ya se buscó y no existe en TheAudioDB, evita reintentos
+    val bannerUrl: String?,
+    val formedYear: String?,
+    val country: String?,
+    val style: String?,
+    val found: Boolean,
     val fetchedAt: Long = System.currentTimeMillis()
 )

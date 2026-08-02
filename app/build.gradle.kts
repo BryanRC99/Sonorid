@@ -29,6 +29,10 @@ android {
             optimization {
                 enable = true
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {
@@ -53,11 +57,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.palette)
 
-    // WorkManager (descargas/tareas en segundo plano)
-    implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
-
     // Media3
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
@@ -73,6 +72,11 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
+    // WorkManager (descargas/tareas en segundo plano)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
     // Retrofit + Serialization
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.kotlinx.serialization)
@@ -84,6 +88,7 @@ dependencies {
 
     // Coil
     implementation(libs.coil.compose)
+    implementation(libs.reorderable)
 
     // Navigation
     implementation(libs.navigation.compose)
