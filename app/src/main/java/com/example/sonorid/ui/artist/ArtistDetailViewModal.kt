@@ -35,6 +35,16 @@ class ArtistDetailViewModel @Inject constructor(
         }
     }
 
+    fun addToFavorites(songIds: Set<Long>) {
+        if (songIds.isEmpty()) return
+        viewModelScope.launch { favoritesRepository.addFavorites(songIds) }
+    }
+
+    fun removeFromFavorites(songIds: Set<Long>) {
+        if (songIds.isEmpty()) return
+        viewModelScope.launch { favoritesRepository.removeFavorites(songIds) }
+    }
+
     fun toggleFavorite(songId: Long) {
         viewModelScope.launch { favoritesRepository.toggleFavorite(songId) }
     }

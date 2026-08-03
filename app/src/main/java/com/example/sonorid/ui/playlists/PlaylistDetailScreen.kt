@@ -125,8 +125,9 @@ fun PlaylistDetailScreen(
         if (selection.isActive) {
             SelectionTopBar(
                 selectedCount = selection.count,
+                totalCount = songs.size,
                 onClose = { selection.clear() },
-                onSelectAll = { selection.selectAll(songs.map { it.id }) },
+                onToggleSelectAll = { selection.toggleSelectAll(songs.map { it.id }) },
                 actions = {
                     IconButton(onClick = { showBulkPlaylistSheet = true }) {
                         Icon(Icons.Default.PlaylistAdd, contentDescription = "Agregar a otra lista")

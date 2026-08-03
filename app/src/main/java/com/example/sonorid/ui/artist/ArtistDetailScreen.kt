@@ -4,16 +4,21 @@ package com.example.sonorid.ui.artist
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,14 +35,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.ui.common.AlbumArt
 import com.example.sonorid.ui.common.ArtistImage
+import com.example.sonorid.ui.common.LocalToastHost
+import com.example.sonorid.ui.common.SelectionTopBar
 import com.example.sonorid.ui.common.SongOverflowMenu
 import com.example.sonorid.ui.common.colorForName
 import com.example.sonorid.ui.common.rememberDominantColor
+import com.example.sonorid.ui.common.rememberSelectionState
+import com.example.sonorid.ui.playlists.AddSongsToPlaylistSheet
 import com.example.sonorid.ui.playlists.AddToPlaylistSheet
-import com.example.sonorid.ui.theme.SonoridSpacing
-import com.example.sonorid.ui.common.AlbumArt
 import com.example.sonorid.ui.theme.SonoridSizes
+import com.example.sonorid.ui.theme.SonoridSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +62,11 @@ fun ArtistDetailScreen(
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val infoMap by infoViewModel.infoMap.collectAsState()
     var sheetSongId by remember { mutableStateOf<Long?>(null) }
+
+    // Estado de selección múltiple
+    val selection = rememberSelectionState<Long>()
+    var showBulkPlaylistSheet by remember { mutableStateOf(false) }
+    val showToast = LocalToastHost.current
 
     LaunchedEffect(artistName) {
         viewModel.load(artistName)
@@ -94,12 +108,17 @@ fun ArtistDetailScreen(
                         Spacer(Modifier.height(SonoridSpacing.Sm))
                     }
                 }
-                items(songs, key = { it.id }) { song ->
-                    val index = songs.indexOf(song)
+                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                     ArtistSongRow(
                         song = song,
                         isFavorite = song.id in favoriteIds,
-                        onClick = { onSongClick(songs, index) },
+                        isSelectionMode = selection.isActive,
+                        isSelected = selection.isSelected(song.id),
+                        onClick = {
+                            if (selection.isActive) selection.toggle(song.id)
+                            else onSongClick(songs, index)
+                        },
+                        onLongClick = { selection.toggle(song.id) },
                         onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                         onAddToPlaylist = { sheetSongId = song.id }
                     )
@@ -108,36 +127,72 @@ fun ArtistDetailScreen(
             }
         }
 
-        TopAppBar(
-            title = {
-                AnimatedVisibility(visible = showSolidTopBar, enter = fadeIn(), exit = fadeOut()) {
-                    Text(artistName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (showSolidTopBar) Color.Transparent
-                                else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+        // TopBar condicional para selección múltiple
+        // TopBar condicional para selección múltiple
+        if (selection.isActive) {
+            SelectionTopBar(
+                selectedCount = selection.count,
+                totalCount = songs.size,
+                onClose = { selection.clear() },
+                onToggleSelectAll = { selection.toggleSelectAll(songs.map { it.id }) },
+                actions = {
+                    IconButton(onClick = { showBulkPlaylistSheet = true }) {
+                        Icon(Icons.Default.PlaylistAdd, contentDescription = "Agregar a lista")
+                    }
+                    IconButton(onClick = {
+                        viewModel.addToFavorites(selection.selectedIds)
+                        showToast("Agregadas a favoritos")
+                        selection.clear()
+                    }) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Agregar a favoritos")
                     }
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
             )
-        )
+        } else {
+            TopAppBar(
+                title = {
+                    AnimatedVisibility(visible = showSolidTopBar, enter = fadeIn(), exit = fadeOut()) {
+                        Text(artistName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (showSolidTopBar) Color.Transparent
+                                    else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
+                )
+            )
+        }
     }
 
+    // Sheet individual
     sheetSongId?.let { songId ->
         AddToPlaylistSheet(songId = songId, onDismiss = { sheetSongId = null })
+    }
+
+    // Sheet masivo
+    if (showBulkPlaylistSheet) {
+        AddSongsToPlaylistSheet(
+            songIds = selection.selectedIds.toList(),
+            onDismiss = { showBulkPlaylistSheet = false },
+            onDone = { message ->
+                showToast(message)
+                selection.clear()
+            }
+        )
     }
 }
 
@@ -162,10 +217,6 @@ private fun ArtistHeader(
         label = "artistScrimColor"
     )
 
-    // Solo se acepta el banner como hero si su proporción real es
-    // "ancha" de verdad (>= 3:1). Muchos banners subidos por la comunidad
-    // son en realidad logos o fotos verticales mal etiquetadas, que se ven
-    // rotas o compiten con el avatar — se detecta y se descarta automático.
     var isValidBannerRatio by remember(bannerUrl) { mutableStateOf<Boolean?>(null) }
     val useBanner = !bannerUrl.isNullOrBlank() && isValidBannerRatio != false
 
@@ -190,9 +241,6 @@ private fun ArtistHeader(
         }
 
         if (useBanner) {
-            // Scrim doble: oscurece tanto arriba (para que el avatar no
-            // compita con lo que haya detrás) como abajo (para legibilidad
-            // del texto), en vez de solo degradar hacia el fondo.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -353,21 +401,58 @@ private fun ArtistBiographySection(biography: String) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ArtistSongRow(
     song: Song,
     isFavorite: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToPlaylist: () -> Unit
 ) {
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+    } else {
+        Color.Transparent
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(backgroundColor)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Seleccionado",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.width(SonoridSpacing.Sm))
+        }
+
         AlbumArt(
             artUri = song.albumArtUri,
             modifier = Modifier.size(SonoridSizes.SongRowArt)
@@ -377,6 +462,7 @@ private fun ArtistSongRow(
             Text(
                 song.title,
                 style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isFavorite) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -389,10 +475,13 @@ private fun ArtistSongRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        SongOverflowMenu(
-            isFavorite = isFavorite,
-            onToggleFavorite = onToggleFavorite,
-            onAddToPlaylist = onAddToPlaylist
-        )
+
+        if (!isSelectionMode) {
+            SongOverflowMenu(
+                isFavorite = isFavorite,
+                onToggleFavorite = onToggleFavorite,
+                onAddToPlaylist = onAddToPlaylist
+            )
+        }
     }
 }

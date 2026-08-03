@@ -27,6 +27,14 @@ class SelectionState<T> {
     fun clear() {
         selectedIds = emptySet()
     }
+
+    fun toggleSelectAll(allIds: List<T>) {
+        selectedIds = if (selectedIds.size == allIds.size && selectedIds.containsAll(allIds)) {
+            emptySet()
+        } else {
+            allIds.toSet()
+        }
+    }
 }
 
 @Composable

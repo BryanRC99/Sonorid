@@ -4,15 +4,20 @@ package com.example.sonorid.ui.album
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,12 +35,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonorid.domain.model.Song
 import com.example.sonorid.ui.common.AlbumArt
+import com.example.sonorid.ui.common.LocalToastHost
+import com.example.sonorid.ui.common.SelectionTopBar
 import com.example.sonorid.ui.common.SongOverflowMenu
 import com.example.sonorid.ui.common.rememberDominantColor
+import com.example.sonorid.ui.common.rememberSelectionState
+import com.example.sonorid.ui.playlists.AddSongsToPlaylistSheet
 import com.example.sonorid.ui.playlists.AddToPlaylistSheet
 import com.example.sonorid.ui.theme.SonoridExtraShapes
-import com.example.sonorid.ui.theme.SonoridSpacing
 import com.example.sonorid.ui.theme.SonoridSizes
+import com.example.sonorid.ui.theme.SonoridSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +58,11 @@ fun AlbumDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     var sheetSongId by remember { mutableStateOf<Long?>(null) }
+
+    // Estado de selección múltiple
+    val selection = rememberSelectionState<Long>()
+    var showBulkPlaylistSheet by remember { mutableStateOf(false) }
+    val showToast = LocalToastHost.current
 
     LaunchedEffect(albumId) { viewModel.load(albumId) }
 
@@ -79,7 +93,13 @@ fun AlbumDetailScreen(
                         trackNumber = index + 1,
                         song = song,
                         isFavorite = song.id in favoriteIds,
-                        onClick = { onSongClick(songs, index) },
+                        isSelectionMode = selection.isActive,
+                        isSelected = selection.isSelected(song.id),
+                        onClick = {
+                            if (selection.isActive) selection.toggle(song.id)
+                            else onSongClick(songs, index)
+                        },
+                        onLongClick = { selection.toggle(song.id) },
                         onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                         onAddToPlaylist = { sheetSongId = song.id }
                     )
@@ -88,40 +108,75 @@ fun AlbumDetailScreen(
             }
         }
 
-        TopAppBar(
-            title = {
-                AnimatedVisibility(visible = showSolidTopBar, enter = fadeIn(), exit = fadeOut()) {
-                    Text(
-                        text = songs.firstOrNull()?.album.orEmpty(),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(
-                                if (showSolidTopBar) Color.Transparent
-                                else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+        // TopBar condicional para selección múltiple
+        if (selection.isActive) {
+            SelectionTopBar(
+                selectedCount = selection.count,
+                totalCount = songs.size,
+                onClose = { selection.clear() },
+                onToggleSelectAll = { selection.toggleSelectAll(songs.map { it.id }) },
+                actions = {
+                    IconButton(onClick = { showBulkPlaylistSheet = true }) {
+                        Icon(Icons.Default.PlaylistAdd, contentDescription = "Agregar a lista")
+                    }
+                    IconButton(onClick = {
+                        viewModel.addToFavorites(selection.selectedIds)
+                        showToast("Agregadas a favoritos")
+                        selection.clear()
+                    }) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Agregar a favoritos")
                     }
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
             )
-        )
+        } else {
+            TopAppBar(
+                title = {
+                    AnimatedVisibility(visible = showSolidTopBar, enter = fadeIn(), exit = fadeOut()) {
+                        Text(
+                            text = songs.firstOrNull()?.album.orEmpty(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (showSolidTopBar) Color.Transparent
+                                    else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
+                )
+            )
+        }
     }
 
+    // Sheet individual
     sheetSongId?.let { songId ->
         AddToPlaylistSheet(songId = songId, onDismiss = { sheetSongId = null })
+    }
+
+    // Sheet masivo
+    if (showBulkPlaylistSheet) {
+        AddSongsToPlaylistSheet(
+            songIds = selection.selectedIds.toList(),
+            onDismiss = { showBulkPlaylistSheet = false },
+            onDone = { message ->
+                showToast(message)
+                selection.clear()
+            }
+        )
     }
 }
 
@@ -218,7 +273,7 @@ private fun AlbumHeader(
                     onClick = onPlay,
                     modifier = Modifier
                         .size(56.dp)
-                        .shadow(elevation = 8.dp, shape = androidx.compose.foundation.shape.CircleShape),
+                        .shadow(elevation = 8.dp, shape = CircleShape),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -233,35 +288,76 @@ private fun AlbumHeader(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AlbumTrackRow(
     trackNumber: Int,
     song: Song,
     isFavorite: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToPlaylist: () -> Unit
 ) {
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+    } else {
+        Color.Transparent
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(backgroundColor)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = trackNumber.toString(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(24.dp),
-            textAlign = TextAlign.Center
-        )
+        // En modo selección mostramos la casilla/check; de lo contrario el número de pista
+        if (isSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Seleccionado",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = trackNumber.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(24.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+
         Spacer(Modifier.width(SonoridSpacing.Xs))
+
         AlbumArt(
             artUri = song.albumArtUri,
             modifier = Modifier.size(SonoridSizes.SongRowArt)
         )
+
         Spacer(Modifier.width(SonoridSpacing.Sm))
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 song.title,
@@ -277,11 +373,14 @@ private fun AlbumTrackRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        SongOverflowMenu(
-            isFavorite = isFavorite,
-            onToggleFavorite = onToggleFavorite,
-            onAddToPlaylist = onAddToPlaylist
-        )
+
+        if (!isSelectionMode) {
+            SongOverflowMenu(
+                isFavorite = isFavorite,
+                onToggleFavorite = onToggleFavorite,
+                onAddToPlaylist = onAddToPlaylist
+            )
+        }
     }
 }
 
