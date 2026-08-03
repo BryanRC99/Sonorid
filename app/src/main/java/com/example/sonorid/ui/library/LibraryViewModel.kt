@@ -7,8 +7,8 @@ import com.example.sonorid.data.repository.FavoritesRepository
 import com.example.sonorid.domain.model.Song
 import com.example.sonorid.domain.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -48,6 +48,8 @@ class LibraryViewModel @Inject constructor(
             try {
                 _songs.value = repository.getAllSongs()
                 hasLoaded = true
+            } catch (e: Exception) {
+                e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }
@@ -55,6 +57,57 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun toggleFavorite(songId: Long) {
-        viewModelScope.launch { favoritesRepository.toggleFavorite(songId) }
+        viewModelScope.launch {
+            try {
+                favoritesRepository.toggleFavorite(songId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Agrega un conjunto de canciones a favoritos en lote.
+     * Solo procesa los IDs que aún no estén en favoritos.
+     */
+    fun addToFavorites(songIds: Set<Long>) {
+        if (songIds.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val currentFavorites = favoriteIds.value
+                val newFavoritesToAdd = songIds.filterNot { it in currentFavorites }
+
+                if (newFavoritesToAdd.isNotEmpty()) {
+                    // Si tu FavoritesRepository admite colecciones directamente usa ese método,
+                    // de lo contrario se iteran de manera asíncrona dentro de la corrutina.
+                    newFavoritesToAdd.forEach { id ->
+                        favoritesRepository.toggleFavorite(id)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Elimina un conjunto de canciones de favoritos en lote.
+     */
+    fun removeFromFavorites(songIds: Set<Long>) {
+        if (songIds.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val currentFavorites = favoriteIds.value
+                val favoritesToRemove = songIds.filter { it in currentFavorites }
+
+                favoritesToRemove.forEach { id ->
+                    favoritesRepository.toggleFavorite(id)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

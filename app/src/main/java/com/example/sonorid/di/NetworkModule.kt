@@ -1,7 +1,10 @@
 // app/src/main/java/com/example/sonorid/di/NetworkModule.kt
 package com.example.sonorid.di
 
+import com.example.sonorid.BuildConfig
+import com.example.sonorid.data.remote.FanartTvApi
 import com.example.sonorid.data.remote.LrcLibApi
+import com.example.sonorid.data.remote.MusicBrainzApi
 import com.example.sonorid.data.remote.TheAudioDbApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
@@ -24,6 +27,14 @@ annotation class LrcLibRetrofit
 @Retention(AnnotationRetention.BINARY)
 annotation class TheAudioDbRetrofit
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MusicBrainzRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class FanartTvApiKey
+
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
@@ -37,7 +48,28 @@ object NetworkModule {
     fun provideOkHttpClient(): OkHttpClient {
         val userAgentInterceptor = Interceptor { chain ->
             val request = chain.request().newBuilder()
-                .header("User-Agent", "Sonorid/1.0 (Android app; contact: tu-email-o-repo)")
+                .header("User-Agent", "Sonorid/1.0 (https://github.com/BryanRC99/Sonorid)")
+                .build()
+            chain.proceed(request)
+        }
+        return OkHttpClient.Builder()
+            .addInterceptor(userAgentInterceptor)
+            .build()
+    }
+
+    /**
+     * Cliente dedicado para MusicBrainz: mismo User-Agent identificable
+     * (obligatorio, o bloquean el IP) + throttle de 1.1s entre requests.
+     * ⚠️ Reemplaza "tu-email-o-repo" por tu email real o la URL del repo
+     * antes de publicar — MusicBrainz puede bloquear User-Agents genéricos.
+     */
+    @Provides
+    @Singleton
+    @MusicBrainzRetrofit
+    fun provideMusicBrainzOkHttpClient(): OkHttpClient {
+        val userAgentInterceptor = Interceptor { chain ->
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "Sonorid/1.0 (contact: tu-email-o-repo)")
                 .build()
             chain.proceed(request)
         }
@@ -69,4 +101,35 @@ object NetworkModule {
             .build()
             .create(TheAudioDbApi::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideMusicBrainzApi(
+        json: Json,
+        @MusicBrainzRetrofit okHttpClient: OkHttpClient
+    ): MusicBrainzApi {
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl("https://musicbrainz.org/ws/2/")
+            .client(okHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+            .create(MusicBrainzApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFanartTvApi(json: Json, okHttpClient: OkHttpClient): FanartTvApi {
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl("https://webservice.fanart.tv/v3/")
+            .client(okHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+            .create(FanartTvApi::class.java)
+    }
+
+    @Provides
+    @FanartTvApiKey
+    fun provideFanartTvApiKey(): String = BuildConfig.FANART_TV_API_KEY
 }

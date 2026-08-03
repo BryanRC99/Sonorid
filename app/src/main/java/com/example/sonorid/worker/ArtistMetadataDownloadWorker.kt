@@ -14,6 +14,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.example.sonorid.MainActivity
 import com.example.sonorid.data.repository.ArtistInfoRepository
 import com.example.sonorid.data.repository.RateLimitException
@@ -23,13 +25,6 @@ import com.example.sonorid.util.NetworkStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
-/**
- * Descarga metadatos de artista (imagen, biografía, banner, género, país,
- * año de formación) para toda la biblioteca, en segundo plano. Sigue el
- * mismo patrón que LyricsDownloadWorker: cachea en Room para no repetir
- * peticiones, y se detiene con un motivo claro si se pierde internet o
- * si TheAudioDB responde 429 (límite de peticiones alcanzado).
- */
 @HiltWorker
 class ArtistMetadataDownloadWorker @AssistedInject constructor(
     @Assisted appContext: Context,
@@ -75,7 +70,16 @@ class ArtistMetadataDownloadWorker @AssistedInject constructor(
 
                 try {
                     val info = artistInfoRepository.getArtistInfo(artistName)
-                    if (info != null) found++ else notFound++
+                    if (info != null) {
+                        found++
+                        // 🆕 Descarga y cachea los bytes reales de la imagen a disco,
+                        // no solo la URL. Sin esto, "Descargar metadatos" solo guardaba
+                        // el JSON y la imagen se seguía pidiendo por red al mostrarla.
+                        warmImageCache(info.imageUrl)
+                        warmImageCache(info.bannerUrl)
+                    } else {
+                        notFound++
+                    }
                 } catch (e: RateLimitException) {
                     return Result.failure(
                         workDataOf(
@@ -101,6 +105,21 @@ class ArtistMetadataDownloadWorker @AssistedInject constructor(
             )
         } catch (e: Exception) {
             Result.failure(workDataOf(KEY_ERROR to (e.message ?: "Error desconocido")))
+        }
+    }
+
+    /** Ejecuta la carga con el ImageLoader de Coil solo para forzar que quede
+     * escrita en el caché de disco; no nos interesa el Drawable resultante. */
+    private suspend fun warmImageCache(url: String?) {
+        if (url.isNullOrBlank()) return
+        try {
+            val request = ImageRequest.Builder(applicationContext)
+                .data(url)
+                .build()
+            applicationContext.imageLoader.execute(request)
+        } catch (e: Exception) {
+            // Si falla la descarga de la imagen puntual, no abortamos todo el
+            // Worker por eso — el artista ya quedó con sus metadatos de texto.
         }
     }
 

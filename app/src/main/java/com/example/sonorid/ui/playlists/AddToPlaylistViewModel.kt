@@ -47,4 +47,21 @@ class AddToPlaylistViewModel @Inject constructor(
             _membership.value = _membership.value + id
         }
     }
+
+    // 🆕 para selección múltiple: agrega varias canciones a una playlist existente
+    fun addSongsToPlaylist(playlistId: Long, songIds: List<Long>, onDone: () -> Unit) {
+        viewModelScope.launch {
+            songIds.forEach { songId -> playlistRepository.addSong(playlistId, songId) }
+            onDone()
+        }
+    }
+
+    // 🆕 crea una playlist nueva y le agrega varias canciones de una vez
+    fun createPlaylistAndAddSongs(name: String, songIds: List<Long>, onDone: () -> Unit) {
+        viewModelScope.launch {
+            val id = playlistRepository.createPlaylist(name)
+            songIds.forEach { songId -> playlistRepository.addSong(id, songId) }
+            onDone()
+        }
+    }
 }

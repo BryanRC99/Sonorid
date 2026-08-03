@@ -59,6 +59,20 @@ class PlaylistDetailViewModel @Inject constructor(
         }
     }
 
+    fun removeSongsFromPlaylist(playlistId: Long, songIds: Set<Long>) {
+        viewModelScope.launch {
+            songIds.forEach { playlistRepository.removeSong(playlistId, it) }
+            _songs.value = _songs.value.filterNot { it.id in songIds }
+        }
+    }
+
+    fun removeSongsFromFavorites(songIds: Set<Long>) {
+        viewModelScope.launch {
+            favoritesRepository.removeFavorites(songIds)
+            _songs.value = _songs.value.filterNot { it.id in songIds }
+        }
+    }
+
     fun toggleFavorite(songId: Long) {
         viewModelScope.launch { favoritesRepository.toggleFavorite(songId) }
     }

@@ -166,3 +166,79 @@ private fun PlaylistSelectRow(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddSongsToPlaylistSheet(
+    songIds: List<Long>,
+    onDismiss: () -> Unit,
+    onDone: (message: String) -> Unit,
+    viewModel: AddToPlaylistViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+) {
+    val playlists by viewModel.playlists.collectAsState()
+    var showCreateDialog by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(bottom = SonoridSpacing.Lg)) {
+            Text(
+                "Agregar ${songIds.size} canciones a...",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Sm)
+            )
+
+            NewPlaylistRow(onClick = { showCreateDialog = true })
+
+            LazyColumn {
+                items(playlists, key = { it.id }) { playlist ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.addSongsToPlaylist(playlist.id, songIds) {
+                                    onDismiss()
+                                    onDone("Agregadas a ${playlist.name}")
+                                }
+                            }
+                            .padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.QueueMusic,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(SonoridSpacing.Sm))
+                        Text(
+                            playlist.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreateDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name ->
+                viewModel.createPlaylistAndAddSongs(name, songIds) {
+                    showCreateDialog = false
+                    onDismiss()
+                    onDone("Agregadas a $name")
+                }
+            }
+        )
+    }
+}

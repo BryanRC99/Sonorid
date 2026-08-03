@@ -12,6 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
@@ -31,8 +33,8 @@ import com.example.sonorid.ui.theme.SonoridSpacing
 
 private const val GITHUB_URL = "https://github.com/" // 🔧 reemplazar por la URL real del repo
 
-/** Rediseño minimalista: sin tarjetas, sin color morado. Todo plano sobre
- * negro, con la misma lógica de secciones + filas que Ajustes. */
+/** Estética idéntica a Ajustes: sin tarjetas, sin fondos por fila, filas planas
+ * separadas por divisores finos sobre negro puro. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
@@ -109,21 +111,33 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(SonoridSpacing.Xl))
 
             AboutSectionLabel("Créditos")
-            SettingsLikeGroup {
-                AboutRow(
-                    icon = Icons.Default.Lyrics,
-                    title = "LRCLIB",
-                    subtitle = "Letras sincronizadas de las canciones",
-                    onClick = { openUrl("https://lrclib.net/") }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.background)
-                AboutRow(
-                    icon = Icons.Default.Person,
-                    title = "TheAudioDB",
-                    subtitle = "Fotos, géneros y biografías de artistas",
-                    onClick = { openUrl("https://www.theaudiodb.com/") }
-                )
-            }
+            AboutRow(
+                icon = Icons.Default.Lyrics,
+                title = "LRCLIB",
+                subtitle = "Letras sincronizadas de las canciones",
+                onClick = { openUrl("https://lrclib.net/") }
+            )
+            AboutDivider()
+            AboutRow(
+                icon = Icons.Default.Fingerprint,
+                title = "MusicBrainz",
+                subtitle = "Identificación de artistas y álbumes",
+                onClick = { openUrl("https://musicbrainz.org/") }
+            )
+            AboutDivider()
+            AboutRow(
+                icon = Icons.Default.Image,
+                title = "Fanart.tv",
+                subtitle = "Imágenes y arte de artistas en alta calidad",
+                onClick = { openUrl("https://fanart.tv/") }
+            )
+            AboutDivider()
+            AboutRow(
+                icon = Icons.Default.Person,
+                title = "TheAudioDB",
+                subtitle = "Biografías, géneros y datos de artistas",
+                onClick = { openUrl("https://www.theaudiodb.com/") }
+            )
 
             Spacer(Modifier.height(SonoridSpacing.Lg))
 
@@ -136,35 +150,13 @@ fun AboutScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(horizontal = SonoridSpacing.Lg)
             )
             Spacer(Modifier.height(SonoridSpacing.Sm))
-            SettingsLikeGroup {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { openUrl(GITHUB_URL) }
-                        .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Md),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = GitHubIcon,
-                        contentDescription = "GitHub",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(SonoridSpacing.Md))
-                    Text(
-                        "Ver repositorio en GitHub",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+            AboutRow(
+                icon = null,
+                customIcon = { GitHubIconLeading() },
+                title = "Ver repositorio en GitHub",
+                subtitle = null,
+                onClick = { openUrl(GITHUB_URL) }
+            )
 
             Spacer(Modifier.height(SonoridSpacing.Xxl))
 
@@ -188,26 +180,39 @@ private fun AboutSectionLabel(text: String) {
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 0.8.sp,
-        modifier = Modifier.padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm)
+        modifier = Modifier.padding(
+            horizontal = SonoridSpacing.Lg,
+            vertical = SonoridSpacing.Sm
+        )
     )
 }
 
 @Composable
-private fun SettingsLikeGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer),
-        content = content
+private fun AboutDivider() {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outline,
+        modifier = Modifier.padding(start = 52.dp)
     )
 }
 
+@Composable
+private fun GitHubIconLeading() {
+    Icon(
+        imageVector = GitHubIcon,
+        contentDescription = "GitHub",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.size(20.dp)
+    )
+}
+
+/** Misma estructura visual que SettingsRow: sin fondo, icono + título/subtítulo + chevron. */
 @Composable
 private fun AboutRow(
-    icon: ImageVector,
+    icon: ImageVector?,
     title: String,
-    subtitle: String,
-    onClick: () -> Unit
+    subtitle: String?,
+    onClick: () -> Unit,
+    customIcon: (@Composable () -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -216,13 +221,25 @@ private fun AboutRow(
             .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        if (customIcon != null) {
+            customIcon()
+        } else if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
         Spacer(Modifier.width(SonoridSpacing.Md))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
+        Spacer(Modifier.width(SonoridSpacing.Xs))
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = null,

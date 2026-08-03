@@ -82,7 +82,7 @@ fun SettingsScreen(
             SettingsRow(
                 icon = Icons.Default.Person,
                 title = "Descargar metadatos de artistas",
-                subtitle = "Biografía, imagen y datos desde TheAudioDB · requiere internet",
+                subtitle = "Imágenes, biografía y géneros desde MusicBrainz, Fanart.tv y TheAudioDB · requiere internet",
                 onClick = onOpenBulkMetadata
             )
 

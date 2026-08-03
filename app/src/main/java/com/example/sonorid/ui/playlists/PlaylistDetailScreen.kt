@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistRemove
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.ui.common.LocalToastHost
+import com.example.sonorid.ui.common.SelectionTopBar
+import com.example.sonorid.ui.common.rememberSelectionState
 import com.example.sonorid.ui.library.SongRow
 import com.example.sonorid.ui.theme.SonoridExtraShapes
 import com.example.sonorid.ui.theme.SonoridSpacing
@@ -53,6 +57,11 @@ fun PlaylistDetailScreen(
 
     val isFavorites = playlistId == null
     val displayName = if (isFavorites) "Favoritos" else (playlistName ?: title)
+
+    // Estado de selección múltiple
+    val selection = rememberSelectionState<Long>()
+    var showBulkPlaylistSheet by remember { mutableStateOf(false) }
+    val showToast = LocalToastHost.current
 
     LaunchedEffect(playlistId) {
         if (isFavorites) viewModel.loadFavorites() else viewModel.loadPlaylist(playlistId!!)
@@ -79,7 +88,9 @@ fun PlaylistDetailScreen(
                 if (songs.isEmpty()) {
                     item {
                         Box(
-                            modifier = Modifier.fillMaxWidth().padding(SonoridSpacing.Xxl),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(SonoridSpacing.Xxl),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -94,7 +105,13 @@ fun PlaylistDetailScreen(
                         SongRow(
                             song = song,
                             isFavorite = song.id in favoriteIds,
-                            onClick = { onSongClick(songs, index) },
+                            isSelectionMode = selection.isActive,
+                            isSelected = selection.isSelected(song.id),
+                            onClick = {
+                                if (selection.isActive) selection.toggle(song.id)
+                                else onSongClick(songs, index)
+                            },
+                            onLongClick = { selection.toggle(song.id) },
                             onToggleFavorite = { viewModel.toggleFavorite(song.id) },
                             onAddToPlaylist = { sheetSongId = song.id }
                         )
@@ -104,36 +121,78 @@ fun PlaylistDetailScreen(
             }
         }
 
-        TopAppBar(
-            title = {
-                AnimatedVisibility(visible = showSolidTopBar, enter = fadeIn(), exit = fadeOut()) {
-                    Text(displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(
-                                if (showSolidTopBar) Color.Transparent
-                                else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+        // TopBar condicional según el estado de selección
+        if (selection.isActive) {
+            SelectionTopBar(
+                selectedCount = selection.count,
+                onClose = { selection.clear() },
+                onSelectAll = { selection.selectAll(songs.map { it.id }) },
+                actions = {
+                    IconButton(onClick = { showBulkPlaylistSheet = true }) {
+                        Icon(Icons.Default.PlaylistAdd, contentDescription = "Agregar a otra lista")
+                    }
+                    IconButton(onClick = {
+                        if (isFavorites) {
+                            viewModel.removeSongsFromFavorites(selection.selectedIds)
+                            showToast("Quitadas de favoritos")
+                        } else {
+                            viewModel.removeSongsFromPlaylist(playlistId!!, selection.selectedIds)
+                            showToast("Quitadas de la lista")
+                        }
+                        selection.clear()
+                    }) {
+                        Icon(
+                            if (isFavorites) Icons.Default.FavoriteBorder else Icons.Default.PlaylistRemove,
+                            contentDescription = if (isFavorites) "Quitar de favoritos" else "Quitar de la lista"
+                        )
                     }
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
             )
-        )
+        } else {
+            TopAppBar(
+                title = {
+                    AnimatedVisibility(visible = showSolidTopBar, enter = fadeIn(), exit = fadeOut()) {
+                        Text(displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(
+                                    if (showSolidTopBar) Color.Transparent
+                                    else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
+                )
+            )
+        }
     }
 
+    // Modal para agregar una sola canción (ya no requiere import explícito porque está en el mismo paquete)
     sheetSongId?.let { songId ->
         AddToPlaylistSheet(songId = songId, onDismiss = { sheetSongId = null })
+    }
+
+    // Modal para agregar múltiples canciones seleccionadas
+    if (showBulkPlaylistSheet) {
+        AddSongsToPlaylistSheet(
+            songIds = selection.selectedIds.toList(),
+            onDismiss = { showBulkPlaylistSheet = false },
+            onDone = { message ->
+                showToast(message)
+                selection.clear()
+            }
+        )
     }
 }
 

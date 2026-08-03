@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         ArtistInfoEntity::class,
         LyricsCacheEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class SonoridDatabase : RoomDatabase() {

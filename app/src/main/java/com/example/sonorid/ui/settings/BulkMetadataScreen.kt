@@ -166,8 +166,9 @@ private fun IdleState(isConnected: Boolean) {
     )
     Spacer(Modifier.height(SonoridSpacing.Sm))
     Text(
-        "Sonorid consultará TheAudioDB para cada artista de tu biblioteca y guardará su imagen, " +
-                "biografía, género y país. Los artistas que ya tienen datos guardados se omiten automáticamente.",
+        "Sonorid consultará MusicBrainz, Fanart.tv y TheAudioDB para cada artista de tu biblioteca " +
+                "y guardará su imagen, biografía, género y país. Los artistas que ya tienen datos guardados " +
+                "se omiten automáticamente.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center

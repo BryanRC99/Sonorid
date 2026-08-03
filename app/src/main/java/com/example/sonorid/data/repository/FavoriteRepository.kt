@@ -22,6 +22,14 @@ class FavoritesRepository @Inject constructor(
         if (isFav) favoriteDao.removeFavorite(songId) else favoriteDao.addFavorite(FavoriteEntity(songId))
     }
 
+    suspend fun addFavorites(songIds: Collection<Long>) {
+        songIds.forEach { favoriteDao.addFavorite(FavoriteEntity(it)) }
+    }
+
+    suspend fun removeFavorites(songIds: Collection<Long>) {
+        songIds.forEach { favoriteDao.removeFavorite(it) }
+    }
+
     suspend fun getFavoriteSongs(): List<Song> {
         val favIds = favoriteDao.getFavorites().first().map { it.songId }.toSet()
         return musicRepository.getAllSongs().filter { it.id in favIds }
