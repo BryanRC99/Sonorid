@@ -12,6 +12,7 @@ import com.example.sonorid.domain.repository.MusicRepository
 import com.example.sonorid.playback.MusicController
 import com.example.sonorid.playback.PlaybackMetaState
 import com.example.sonorid.playback.PlaybackProgress
+import com.example.sonorid.playback.PlayerLaunchController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -44,9 +45,11 @@ class PlayerViewModel @Inject constructor(
     private val musicController: MusicController,
     private val favoritesRepository: FavoritesRepository,
     private val musicRepository: MusicRepository,
-    private val mediaStoreDataSource: MediaStoreDataSource
+    private val mediaStoreDataSource: MediaStoreDataSource,
+    private val playerLaunchController: PlayerLaunchController
 ) : ViewModel() {
 
+    val expandRequests = playerLaunchController.expandRequests
     val metaState: StateFlow<PlaybackMetaState> = musicController.playbackState
     val progress: StateFlow<PlaybackProgress> = musicController.progress
 

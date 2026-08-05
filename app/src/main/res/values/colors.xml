@@ -3,4 +3,12 @@
     <color name="sonorid_background">#FF0A0A0A</color>
     <color name="sonorid_surface">#FF131313</color>
     <color name="sonorid_primary">#FFF5F5F5</color>
+
+    <color name="widget_background">#EB232323</color>
+    <color name="widget_outline">#2A2A2A</color>
+    <color name="widget_art_background">#FF1C1C1C</color>
+    <color name="widget_title">#FFF2F2F2</color>
+    <color name="widget_subtitle">#FF9E9E9E</color>
+    <color name="widget_play_pause_bg">#FFF5F5F5</color>
+    <color name="widget_play_pause_icon">#FF0A0A0A</color>
 </resources>

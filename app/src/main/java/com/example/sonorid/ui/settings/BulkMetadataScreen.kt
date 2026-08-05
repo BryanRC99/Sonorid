@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/sonorid/ui/settings/BulkMetadataScreen.kt
 package com.example.sonorid.ui.settings
 
 import androidx.compose.foundation.background
@@ -20,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -156,7 +156,7 @@ fun BulkMetadataScreen(
 
 @Composable
 private fun IdleState(isConnected: Boolean) {
-    IconBadge(icon = Icons.Default.Person)
+    HeroIconBadge(icon = Icons.Default.Person)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text(
         "Descargar datos de tus artistas",
@@ -173,18 +173,16 @@ private fun IdleState(isConnected: Boolean) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
     )
-    Spacer(Modifier.height(SonoridSpacing.Md))
+    Spacer(Modifier.height(SonoridSpacing.Lg))
 
-    InfoStrip(
+    FlatInfoRow(
         icon = Icons.Default.Notifications,
         text = "La descarga continúa en segundo plano aunque salgas de esta pantalla. " +
                 "Te avisaremos con una notificación cuando termine."
     )
 
-    Spacer(Modifier.height(SonoridSpacing.Sm))
-
     if (!isConnected) {
-        InfoStrip(
+        FlatInfoRow(
             icon = Icons.Default.WifiOff,
             text = "Esta función necesita conexión a internet. Conéctate y vuelve a intentarlo.",
             isError = true
@@ -225,7 +223,7 @@ private fun RunningState(progress: MetadataUiProgress) {
         StatColumn(label = "Sin datos", value = progress.notFound.toString())
     }
     Spacer(Modifier.height(SonoridSpacing.Lg))
-    InfoStrip(
+    FlatInfoRow(
         icon = Icons.Default.Notifications,
         text = "Puedes salir de esta pantalla; la descarga sigue en segundo plano."
     )
@@ -233,7 +231,7 @@ private fun RunningState(progress: MetadataUiProgress) {
 
 @Composable
 private fun FinishedState(progress: MetadataUiProgress) {
-    IconBadge(icon = Icons.Default.CheckCircle)
+    HeroIconBadge(icon = Icons.Default.CheckCircle)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text("Descarga completada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
@@ -252,7 +250,7 @@ private fun FinishedState(progress: MetadataUiProgress) {
 
 @Composable
 private fun CancelledState() {
-    IconBadge(icon = Icons.Default.CloudOff)
+    HeroIconBadge(icon = Icons.Default.CloudOff)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text("Descarga cancelada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
@@ -267,7 +265,7 @@ private fun CancelledState() {
 
 @Composable
 private fun NoInternetState(onRetry: () -> Unit) {
-    IconBadge(icon = Icons.Default.WifiOff)
+    HeroIconBadge(icon = Icons.Default.WifiOff)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text("Se perdió la conexión", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
@@ -288,7 +286,7 @@ private fun NoInternetState(onRetry: () -> Unit) {
 
 @Composable
 private fun RateLimitedState() {
-    IconBadge(icon = Icons.Default.HourglassEmpty)
+    HeroIconBadge(icon = Icons.Default.HourglassEmpty)
     Spacer(Modifier.height(SonoridSpacing.Md))
     Text("Demasiadas peticiones", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(SonoridSpacing.Sm))
@@ -301,44 +299,39 @@ private fun RateLimitedState() {
     )
 }
 
+/** Fila plana sin fondo: icono pequeño + texto, mismo lenguaje visual de las
+ * filas de Ajustes/Acerca de. Sustituye al bloque de color usado antes. */
 @Composable
-private fun InfoStrip(icon: ImageVector, text: String, isError: Boolean = false) {
+private fun FlatInfoRow(icon: ImageVector, text: String, isError: Boolean = false) {
+    val contentColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(
-                if (isError) MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.surfaceContainer
-            )
-            .padding(SonoridSpacing.Md),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = SonoridSpacing.Sm),
+        verticalAlignment = Alignment.Top
     ) {
         Icon(
             icon,
             contentDescription = null,
-            tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
+            tint = contentColor,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp)
         )
         Spacer(Modifier.width(SonoridSpacing.Sm))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = text, style = MaterialTheme.typography.bodySmall, color = contentColor)
     }
 }
 
+/** Mismo badge circular que el ícono de cabecera de AboutScreen. */
 @Composable
-private fun IconBadge(icon: ImageVector) {
+private fun HeroIconBadge(icon: ImageVector, tint: Color = MaterialTheme.colorScheme.onSurface) {
     Box(
         modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            .background(MaterialTheme.colorScheme.surfaceContainer),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(32.dp))
     }
 }
 

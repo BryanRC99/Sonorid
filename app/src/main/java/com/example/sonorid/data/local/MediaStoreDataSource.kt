@@ -118,11 +118,10 @@ class MediaStoreDataSource @Inject constructor(
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.TRACK,
+            MediaStore.Audio.Media.DATE_ADDED, // 🆕
             pathColumn
         )
 
-        // 🛠️ FIX: Quitamos el filtro directo de RELATIVE_PATH en la query.
-        // Evita crasheos por incompatibilidades de controladores de MediaStore en Android 10/11.
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
@@ -137,13 +136,13 @@ class MediaStoreDataSource @Inject constructor(
             val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+            val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED) // 🆕
             val pathColIndex = cursor.getColumnIndexOrThrow(pathColumn)
 
             while (cursor.moveToNext()) {
                 val raw = cursor.getString(pathColIndex) ?: continue
                 val folderPath = normalizeFolderPath(raw)
 
-                // 🛠️ FIX: El filtrado manual ahora procesa de forma segura tanto API < 29 como API >= 29
                 if (selectedFolders.isNotEmpty() && folderPath !in selectedFolders) {
                     continue
                 }
@@ -166,7 +165,8 @@ class MediaStoreDataSource @Inject constructor(
                     uri = songUri,
                     albumArtUri = albumArtUri,
                     trackNumber = cursor.getInt(trackColumn),
-                    genre = genreMap[id]
+                    genre = genreMap[id],
+                    dateAdded = cursor.getLong(dateAddedColumn) // 🆕
                 )
             }
         }

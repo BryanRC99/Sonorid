@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Sonorid</string>
+    <string name="widget_description">Controla tu música desde la pantalla de inicio</string>
 </resources>

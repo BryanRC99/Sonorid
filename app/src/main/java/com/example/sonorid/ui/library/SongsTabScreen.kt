@@ -17,8 +17,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.domain.model.SongSortOption
+import com.example.sonorid.domain.model.sortedByOption
 import com.example.sonorid.ui.common.LocalToastHost
 import com.example.sonorid.ui.common.SelectionTopBar
+import com.example.sonorid.ui.common.SortBottomSheet
+import com.example.sonorid.ui.common.SortIconButton
 import com.example.sonorid.ui.common.rememberSelectionState
 import com.example.sonorid.ui.playlists.AddSongsToPlaylistSheet
 import com.example.sonorid.ui.theme.SonoridSpacing
@@ -30,8 +34,13 @@ fun SongsTabScreen(
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
-    val songs by viewModel.songs.collectAsState()
+    val rawSongs by viewModel.songs.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val sortOption by viewModel.songsSortOption.collectAsState()
+    var showSortSheet by remember { mutableStateOf(false) }
+
+    val songs = remember(rawSongs, sortOption) { rawSongs.sortedByOption(sortOption) }
+
     var sheetSongId by remember { mutableStateOf<Long?>(null) }
     var showBulkPlaylistSheet by remember { mutableStateOf(false) }
     val favoriteIds by viewModel.favoriteIds.collectAsState()
@@ -58,6 +67,16 @@ fun SongsTabScreen(
         )
     }
 
+    if (showSortSheet) {
+        SortBottomSheet(
+            options = SongSortOption.entries,
+            selected = sortOption,
+            labelFor = { it.label },
+            onSelect = { viewModel.setSongsSortOption(it) },
+            onDismiss = { showSortSheet = false }
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         if (selection.isActive) {
             SelectionTopBar(
@@ -80,7 +99,7 @@ fun SongsTabScreen(
             )
         }
 
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).fillMaxSize()) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (songs.isEmpty()) {
@@ -95,13 +114,21 @@ fun SongsTabScreen(
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item { GreetingHeader() }
                     item {
-                        Text(
-                            text = "Canciones",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Canciones",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SortIconButton(onClick = { showSortSheet = true })
+                        }
                     }
                     itemsIndexed(items = songs, key = { _, song -> song.id }) { index, song ->
                         SongRow(

@@ -3,8 +3,12 @@ package com.example.sonorid.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sonorid.data.local.UserPreferencesRepository
 import com.example.sonorid.data.repository.FavoritesRepository
+import com.example.sonorid.domain.model.AlbumSortOption
+import com.example.sonorid.domain.model.ArtistSortOption
 import com.example.sonorid.domain.model.Song
+import com.example.sonorid.domain.model.SongSortOption
 import com.example.sonorid.domain.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -15,7 +19,8 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val repository: MusicRepository,
-    private val favoritesRepository: FavoritesRepository
+    private val favoritesRepository: FavoritesRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
@@ -31,8 +36,31 @@ class LibraryViewModel @Inject constructor(
         .map { list -> list.map { it.songId }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    // 🆕 Cada tab (Canciones/Álbumes/Artistas) instancia su propio
+    // LibraryViewModel, pero comparten el mismo UserPreferencesRepository:
+    // cada pantalla lee solo el flujo que le corresponde.
+    val songsSortOption: StateFlow<SongSortOption> = userPreferencesRepository.songsSortOption
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SongSortOption.TITLE_ASC)
+
+    val albumsSortOption: StateFlow<AlbumSortOption> = userPreferencesRepository.albumsSortOption
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlbumSortOption.TITLE_ASC)
+
+    val artistsSortOption: StateFlow<ArtistSortOption> = userPreferencesRepository.artistsSortOption
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ArtistSortOption.NAME_ASC)
+
+    fun setSongsSortOption(option: SongSortOption) {
+        viewModelScope.launch { userPreferencesRepository.setSongsSortOption(option) }
+    }
+
+    fun setAlbumsSortOption(option: AlbumSortOption) {
+        viewModelScope.launch { userPreferencesRepository.setAlbumsSortOption(option) }
+    }
+
+    fun setArtistsSortOption(option: ArtistSortOption) {
+        viewModelScope.launch { userPreferencesRepository.setArtistsSortOption(option) }
+    }
+
     init {
-        // Si se guardan nuevas carpetas desde otra pantalla, refresca solo entonces.
         viewModelScope.launch {
             repository.selectedFolders
                 .drop(1)
@@ -66,24 +94,14 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Agrega un conjunto de canciones a favoritos en lote.
-     * Solo procesa los IDs que aún no estén en favoritos.
-     */
     fun addToFavorites(songIds: Set<Long>) {
         if (songIds.isEmpty()) return
-
         viewModelScope.launch {
             try {
                 val currentFavorites = favoriteIds.value
                 val newFavoritesToAdd = songIds.filterNot { it in currentFavorites }
-
                 if (newFavoritesToAdd.isNotEmpty()) {
-                    // Si tu FavoritesRepository admite colecciones directamente usa ese método,
-                    // de lo contrario se iteran de manera asíncrona dentro de la corrutina.
-                    newFavoritesToAdd.forEach { id ->
-                        favoritesRepository.toggleFavorite(id)
-                    }
+                    newFavoritesToAdd.forEach { id -> favoritesRepository.toggleFavorite(id) }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -91,20 +109,13 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Elimina un conjunto de canciones de favoritos en lote.
-     */
     fun removeFromFavorites(songIds: Set<Long>) {
         if (songIds.isEmpty()) return
-
         viewModelScope.launch {
             try {
                 val currentFavorites = favoriteIds.value
                 val favoritesToRemove = songIds.filter { it in currentFavorites }
-
-                favoritesToRemove.forEach { id ->
-                    favoritesRepository.toggleFavorite(id)
-                }
+                favoritesToRemove.forEach { id -> favoritesRepository.toggleFavorite(id) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

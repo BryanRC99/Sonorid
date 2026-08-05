@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.clickable
@@ -19,8 +20,12 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.unit.dp
+import com.example.sonorid.domain.model.AlbumSortOption
+import com.example.sonorid.domain.model.ArtistSortOption
 import com.example.sonorid.ui.common.AlbumArt
 import com.example.sonorid.ui.common.ArtistImage
+import com.example.sonorid.ui.common.SortBottomSheet
+import com.example.sonorid.ui.common.SortIconButton
 import com.example.sonorid.ui.theme.SonoridExtraShapes
 import com.example.sonorid.ui.theme.SonoridSpacing
 
@@ -30,10 +35,12 @@ fun AlbumsScreen(
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val songs by viewModel.songs.collectAsState()
+    val sortOption by viewModel.albumsSortOption.collectAsState()
+    var showSortSheet by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.loadSongs() }
 
-    val albums = remember(songs) {
-        songs.groupBy { it.albumId }
+    val albums = remember(songs, sortOption) {
+        val grouped = songs.groupBy { it.albumId }
             .map { (albumId, tracks) ->
                 AlbumSummary(
                     albumId = albumId,
@@ -43,7 +50,12 @@ fun AlbumsScreen(
                     songCount = tracks.size
                 )
             }
-            .sortedBy { it.title.lowercase() }
+        when (sortOption) {
+            AlbumSortOption.TITLE_ASC -> grouped.sortedBy { it.title.lowercase() }
+            AlbumSortOption.TITLE_DESC -> grouped.sortedByDescending { it.title.lowercase() }
+            AlbumSortOption.ARTIST -> grouped.sortedBy { it.artist.lowercase() }
+            AlbumSortOption.SONG_COUNT -> grouped.sortedByDescending { it.songCount }
+        }
     }
 
     if (albums.isEmpty()) {
@@ -70,10 +82,23 @@ fun AlbumsScreen(
             verticalArrangement = Arrangement.spacedBy(SonoridSpacing.Lg),
             modifier = Modifier.fillMaxSize()
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                SectionHeaderWithSort(title = "Álbumes", onSortClick = { showSortSheet = true })
+            }
             items(albums, key = { it.albumId }) { album ->
                 AlbumCard(album = album, onClick = { onAlbumClick(album.albumId) })
             }
         }
+    }
+
+    if (showSortSheet) {
+        SortBottomSheet(
+            options = AlbumSortOption.entries,
+            selected = sortOption,
+            labelFor = { it.label },
+            onSelect = { viewModel.setAlbumsSortOption(it) },
+            onDismiss = { showSortSheet = false }
+        )
     }
 }
 
@@ -124,11 +149,17 @@ fun ArtistsScreen(
 ) {
     val songs by viewModel.songs.collectAsState()
     val infoMap by infoViewModel.infoMap.collectAsState()
+    val sortOption by viewModel.artistsSortOption.collectAsState()
+    var showSortSheet by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.loadSongs() }
-    val artists = remember(songs) {
-        songs.groupBy { it.artist }
-            .toList()
-            .sortedBy { (artist, _) -> artist.lowercase() }
+
+    val artists = remember(songs, sortOption) {
+        val grouped = songs.groupBy { it.artist }.toList()
+        when (sortOption) {
+            ArtistSortOption.NAME_ASC -> grouped.sortedBy { (artist, _) -> artist.lowercase() }
+            ArtistSortOption.NAME_DESC -> grouped.sortedByDescending { (artist, _) -> artist.lowercase() }
+            ArtistSortOption.SONG_COUNT -> grouped.sortedByDescending { (_, tracks) -> tracks.size }
+        }
     }
 
     if (artists.isEmpty()) {
@@ -155,6 +186,9 @@ fun ArtistsScreen(
             verticalArrangement = Arrangement.spacedBy(SonoridSpacing.Lg),
             modifier = Modifier.fillMaxSize()
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                SectionHeaderWithSort(title = "Artistas", onSortClick = { showSortSheet = true })
+            }
             items(artists, key = { (artist, _) -> artist }) { (artist, _) ->
                 LaunchedEffect(artist) { infoViewModel.request(artist) }
                 val imageUrl = infoMap[artist]?.imageUrl
@@ -181,6 +215,34 @@ fun ArtistsScreen(
                 }
             }
         }
+    }
+
+    if (showSortSheet) {
+        SortBottomSheet(
+            options = ArtistSortOption.entries,
+            selected = sortOption,
+            labelFor = { it.label },
+            onSelect = { viewModel.setArtistsSortOption(it) },
+            onDismiss = { showSortSheet = false }
+        )
+    }
+}
+
+/** Encabezado compartido entre Álbumes y Artistas: título + botón de orden. */
+@Composable
+private fun SectionHeaderWithSort(title: String, onSortClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = SonoridSpacing.Xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        SortIconButton(onClick = onSortClick)
     }
 }
 

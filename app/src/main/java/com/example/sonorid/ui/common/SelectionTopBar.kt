@@ -2,7 +2,6 @@
 package com.example.sonorid.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -29,41 +28,45 @@ fun SelectionTopBar(
 ) {
     val allSelected = totalCount > 0 && selectedCount == totalCount
 
-    TopAppBar(
-        title = {
-            Text(
-                "$selectedCount seleccionadas",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+    Column {
+        TopAppBar(
+            title = {
+                Text(
+                    "$selectedCount seleccionadas",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onClose) {
+                    CircleIconBadge {
+                        Icon(Icons.Default.Close, contentDescription = "Cancelar selección")
+                    }
+                }
+            },
+            actions = {
+                IconButton(onClick = onToggleSelectAll) {
+                    CircleIconBadge {
+                        Icon(
+                            if (allSelected) Icons.Default.ClearAll else Icons.Default.SelectAll,
+                            contentDescription = if (allSelected) "Deseleccionar todas" else "Seleccionar todas"
+                        )
+                    }
+                }
+                actions()
+                Spacer(Modifier.width(SonoridSpacing.Xs))
+            },
+            windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        },
-        navigationIcon = {
-            IconButton(onClick = onClose) {
-                CircleIconBadge {
-                    Icon(Icons.Default.Close, contentDescription = "Cancelar selección")
-                }
-            }
-        },
-        actions = {
-            IconButton(onClick = onToggleSelectAll) {
-                CircleIconBadge {
-                    Icon(
-                        if (allSelected) Icons.Default.ClearAll else Icons.Default.SelectAll,
-                        contentDescription = if (allSelected) "Deseleccionar todas" else "Seleccionar todas"
-                    )
-                }
-            }
-            actions()
-            Spacer(Modifier.width(SonoridSpacing.Xs))
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    }
 }
 
 /** Mismo lenguaje visual que el botón "back" circular de Album/Artist/Playlist detail. */
@@ -73,7 +76,7 @@ private fun CircleIconBadge(content: @Composable () -> Unit) {
         modifier = Modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.4f)),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)),
         contentAlignment = Alignment.Center
     ) {
         content()

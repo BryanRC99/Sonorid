@@ -10,5 +10,6 @@ data class Song(
     val uri: android.net.Uri,
     val albumArtUri: android.net.Uri,
     val trackNumber: Int,
-    val genre: String? = null
+    val genre: String? = null,
+    val dateAdded: Long = 0L
 )

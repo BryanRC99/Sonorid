@@ -39,7 +39,8 @@ fun SongRow(
     modifier: Modifier = Modifier,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
+    onRemoveFromPlaylist: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier
@@ -110,7 +111,8 @@ fun SongRow(
             SongOverflowMenu(
                 isFavorite = isFavorite,
                 onToggleFavorite = onToggleFavorite,
-                onAddToPlaylist = onAddToPlaylist
+                onAddToPlaylist = onAddToPlaylist,
+                onRemoveFromPlaylist = onRemoveFromPlaylist
             )
         }
     }

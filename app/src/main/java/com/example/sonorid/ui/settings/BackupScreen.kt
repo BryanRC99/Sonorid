@@ -6,10 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -19,10 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sonorid.ui.theme.SonoridSpacing
 import java.text.SimpleDateFormat
@@ -68,11 +70,7 @@ fun BackupScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(horizontal = SonoridSpacing.Lg),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(SonoridSpacing.Xl))
-
             when (val current = state) {
                 is BackupUiState.Working -> WorkingState()
                 is BackupUiState.ExportSuccess -> ResultState(
@@ -108,54 +106,47 @@ fun BackupScreen(
                     onImport = { importLauncher.launch(arrayOf("application/json")) }
                 )
             }
-
-            Spacer(Modifier.height(SonoridSpacing.Xl))
         }
     }
 }
 
 @Composable
 private fun IdleContent(onExport: () -> Unit, onImport: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(72.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-        contentAlignment = Alignment.Center
+    Spacer(Modifier.height(SonoridSpacing.Xl))
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = SonoridSpacing.Lg),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            Icons.Default.SdStorage,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(30.dp)
+        HeroIconBadge(icon = Icons.Default.SdStorage)
+        Spacer(Modifier.height(SonoridSpacing.Md))
+        Text(
+            "Tus listas y favoritos, a salvo",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(SonoridSpacing.Sm))
+        Text(
+            "Tus listas de reproducción y favoritos se guardan solo en este dispositivo. Exporta una copia " +
+                    "para no perderlos si cambias de teléfono, reinstalas la app o borras sus datos.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
-    Spacer(Modifier.height(SonoridSpacing.Md))
-    Text(
-        "Tus listas y favoritos, a salvo",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-        textAlign = TextAlign.Center
-    )
-    Spacer(Modifier.height(SonoridSpacing.Sm))
-    Text(
-        "Tus listas de reproducción y favoritos se guardan solo en este dispositivo. Exporta una copia " +
-                "para no perderlos si cambias de teléfono, reinstalas la app o borras sus datos.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center
-    )
 
     Spacer(Modifier.height(SonoridSpacing.Xl))
 
-    BackupActionRow(
+    SectionLabel("Acciones")
+    FlatActionRow(
         icon = Icons.Default.CloudUpload,
         title = "Exportar copia de seguridad",
         subtitle = "Guarda un archivo .json con tus listas y favoritos",
         onClick = onExport
     )
-    Spacer(Modifier.height(SonoridSpacing.Sm))
-    BackupActionRow(
+    FlatDivider()
+    FlatActionRow(
         icon = Icons.Default.CloudDownload,
         title = "Restaurar copia de seguridad",
         subtitle = "Selecciona un archivo .json exportado anteriormente",
@@ -168,42 +159,20 @@ private fun IdleContent(onExport: () -> Unit, onImport: () -> Unit) {
                 "por título, artista y álbum. Las que no se encuentren en este dispositivo se omiten.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = SonoridSpacing.Lg)
     )
 }
 
 @Composable
-private fun BackupActionRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onClick)
-            .padding(horizontal = SonoridSpacing.Md, vertical = SonoridSpacing.Md),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(SonoridSpacing.Md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun WorkingState() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(SonoridSpacing.Md))
+            Text("Procesando…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-}
-
-@Composable
-private fun WorkingState() {
-    Spacer(Modifier.height(SonoridSpacing.Xxl))
-    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
-    Spacer(Modifier.height(SonoridSpacing.Md))
-    Text("Procesando…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -214,29 +183,92 @@ private fun ResultState(
     isError: Boolean = false,
     onDismiss: () -> Unit
 ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = SonoridSpacing.Xl)
+        ) {
+            HeroIconBadge(
+                icon = icon,
+                tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(SonoridSpacing.Md))
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(SonoridSpacing.Sm))
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(SonoridSpacing.Lg))
+            TextButton(onClick = onDismiss) { Text("Aceptar") }
+        }
+    }
+}
+
+/** Mismo badge circular que el ícono de cabecera de AboutScreen. */
+@Composable
+private fun HeroIconBadge(icon: ImageVector, tint: Color = MaterialTheme.colorScheme.onSurface) {
     Box(
         modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            .background(MaterialTheme.colorScheme.surfaceContainer),
         contentAlignment = Alignment.Center
     ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(30.dp))
+    }
+}
+
+/** Misma etiqueta de sección que AboutScreen/SettingsScreen. */
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Sm)
+    )
+}
+
+/** Fila plana sin fondo, misma estructura que AboutRow: icono + título/subtítulo + chevron. */
+@Composable
+private fun FlatActionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = SonoridSpacing.Lg, vertical = SonoridSpacing.Md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(SonoridSpacing.Md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(2.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(SonoridSpacing.Xs))
         Icon(
-            icon,
+            Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(30.dp)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(18.dp)
         )
     }
-    Spacer(Modifier.height(SonoridSpacing.Md))
-    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-    Spacer(Modifier.height(SonoridSpacing.Sm))
-    Text(
-        message,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center
+}
+
+@Composable
+private fun FlatDivider() {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outline,
+        modifier = Modifier.padding(start = 52.dp)
     )
-    Spacer(Modifier.height(SonoridSpacing.Lg))
-    TextButton(onClick = onDismiss) { Text("Aceptar") }
 }

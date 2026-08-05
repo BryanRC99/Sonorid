@@ -2,6 +2,7 @@
 package com.example.sonorid
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -39,12 +40,16 @@ import com.example.sonorid.ui.main.MainScreen
 import com.example.sonorid.ui.theme.SonoridSpacing
 import com.example.sonorid.ui.theme.SonoridTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var playerLaunchController: com.example.sonorid.playback.PlayerLaunchController
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleOpenPlayerIntent(intent)
         setContent {
             SonoridTheme {
                 Surface(
@@ -113,6 +118,18 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenPlayerIntent(intent)
+    }
+
+    private fun handleOpenPlayerIntent(intent: Intent?) {
+        if (intent?.action == com.example.sonorid.playback.PlaybackService.ACTION_OPEN_PLAYER) {
+            playerLaunchController.requestExpand()
+        }
+    }
 }
 
 @Composable
@@ -163,8 +180,6 @@ private fun PermissionOnboardingScreen(
         ) {
             Spacer(Modifier.height(SonoridSpacing.Xxl))
 
-            // 🛠️ Ícono menos llamativo: sin gradiente, un contenedor sutil
-            // en surfaceContainer con una simple nota musical en el color primario.
             Box(
                 modifier = Modifier
                     .size(88.dp)

@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistRemove
@@ -32,9 +34,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sonorid.domain.model.PlaylistSongSortOption
 import com.example.sonorid.domain.model.Song
 import com.example.sonorid.ui.common.LocalToastHost
 import com.example.sonorid.ui.common.SelectionTopBar
+import com.example.sonorid.ui.common.SortBottomSheet
+import com.example.sonorid.ui.common.SortIconButton
 import com.example.sonorid.ui.common.rememberSelectionState
 import com.example.sonorid.ui.library.SongRow
 import com.example.sonorid.ui.theme.SonoridExtraShapes
@@ -53,15 +58,19 @@ fun PlaylistDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val playlistName by viewModel.playlistName.collectAsState()
+    val sortOption by viewModel.sortOption.collectAsState()
     var sheetSongId by remember { mutableStateOf<Long?>(null) }
+    var showSortSheet by remember { mutableStateOf(false) }
 
     val isFavorites = playlistId == null
     val displayName = if (isFavorites) "Favoritos" else (playlistName ?: title)
 
-    // Estado de selección múltiple
     val selection = rememberSelectionState<Long>()
     var showBulkPlaylistSheet by remember { mutableStateOf(false) }
     val showToast = LocalToastHost.current
+
+    var showPlaylistMenu by remember { mutableStateOf(false) }
+    var showDeletePlaylistDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(playlistId) {
         if (isFavorites) viewModel.loadFavorites() else viewModel.loadPlaylist(playlistId!!)
@@ -113,7 +122,13 @@ fun PlaylistDetailScreen(
                             },
                             onLongClick = { selection.toggle(song.id) },
                             onToggleFavorite = { viewModel.toggleFavorite(song.id) },
-                            onAddToPlaylist = { sheetSongId = song.id }
+                            onAddToPlaylist = { sheetSongId = song.id },
+                            onRemoveFromPlaylist = if (!isFavorites) {
+                                {
+                                    viewModel.removeFromPlaylist(playlistId!!, song.id)
+                                    showToast("Quitada de la lista")
+                                }
+                            } else null
                         )
                     }
                 }
@@ -121,7 +136,6 @@ fun PlaylistDetailScreen(
             }
         }
 
-        // TopBar condicional según el estado de selección
         if (selection.isActive) {
             SelectionTopBar(
                 selectedCount = selection.count,
@@ -172,6 +186,58 @@ fun PlaylistDetailScreen(
                         }
                     }
                 },
+                actions = {
+                    // 🆕 Orden disponible tanto en playlists como en Favoritos
+                    SortIconButton(onClick = { showSortSheet = true })
+
+                    // Solo playlists reales se pueden eliminar
+                    if (!isFavorites) {
+                        Box {
+                            IconButton(onClick = { showPlaylistMenu = true }) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(
+                                            if (showSolidTopBar) Color.Transparent
+                                            else MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Más opciones")
+                                }
+                            }
+                            DropdownMenu(
+                                expanded = showPlaylistMenu,
+                                onDismissRequest = { showPlaylistMenu = false },
+                                shape = SonoridExtraShapes.menu,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 6.dp
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "Eliminar lista de reproducción",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showPlaylistMenu = false
+                                        showDeletePlaylistDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = if (showSolidTopBar) MaterialTheme.colorScheme.background else Color.Transparent
                 )
@@ -179,12 +245,10 @@ fun PlaylistDetailScreen(
         }
     }
 
-    // Modal para agregar una sola canción (ya no requiere import explícito porque está en el mismo paquete)
     sheetSongId?.let { songId ->
         AddToPlaylistSheet(songId = songId, onDismiss = { sheetSongId = null })
     }
 
-    // Modal para agregar múltiples canciones seleccionadas
     if (showBulkPlaylistSheet) {
         AddSongsToPlaylistSheet(
             songIds = selection.selectedIds.toList(),
@@ -195,14 +259,56 @@ fun PlaylistDetailScreen(
             }
         )
     }
+
+    if (showSortSheet) {
+        SortBottomSheet(
+            options = PlaylistSongSortOption.entries,
+            selected = sortOption,
+            labelFor = { it.label },
+            onSelect = { viewModel.setSortOption(it) },
+            onDismiss = { showSortSheet = false }
+        )
+    }
+
+    if (showDeletePlaylistDialog && playlistId != null) {
+        DeletePlaylistConfirmDialog(
+            playlistName = displayName,
+            onDismiss = { showDeletePlaylistDialog = false },
+            onConfirm = {
+                showDeletePlaylistDialog = false
+                viewModel.deletePlaylist(playlistId) {
+                    showToast("Lista eliminada")
+                    onBack()
+                }
+            }
+        )
+    }
 }
 
-/**
- * Header hero de lista de reproducción. Favoritos usa el mismo tratamiento
- * de gradiente coral + corazón que su fila en "Tus listas"; una playlist
- * normal usa la carátula de su primera canción como portada + scrim,
- * igual que Album/Artist.
- */
+@Composable
+private fun DeletePlaylistConfirmDialog(
+    playlistName: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("¿Eliminar lista de reproducción?") },
+        text = {
+            Text("Se eliminará \"$playlistName\" permanentemente. Esta acción no se puede deshacer.")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
 @Composable
 private fun PlaylistHeader(
     name: String,

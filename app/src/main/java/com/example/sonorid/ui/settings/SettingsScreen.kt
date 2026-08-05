@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SdStorage
@@ -33,7 +34,8 @@ fun SettingsScreen(
     onOpenBulkLyrics: () -> Unit,
     onOpenBulkMetadata: () -> Unit,
     onOpenBackup: () -> Unit,
-    onOpenAbout: () -> Unit
+    onOpenAbout: () -> Unit,
+    onOpenAudioEffects: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -64,6 +66,16 @@ fun SettingsScreen(
                 title = "Carpetas de música",
                 subtitle = "Elige desde dónde se cargan tus canciones",
                 onClick = onOpenFolders
+            )
+
+            Spacer(Modifier.height(SonoridSpacing.Lg))
+
+            SettingsSectionLabel("Sonido")
+            SettingsRow(
+                icon = Icons.Default.GraphicEq,
+                title = "Efectos de audio",
+                subtitle = "Ecualizador, amplificador de graves y virtualizador",
+                onClick = onOpenAudioEffects
             )
 
             Spacer(Modifier.height(SonoridSpacing.Lg))

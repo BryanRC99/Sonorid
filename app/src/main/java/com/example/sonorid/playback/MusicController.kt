@@ -34,7 +34,8 @@ data class PlaybackProgress(
 
 @Singleton
 class MusicController @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val widgetUpdater: com.example.sonorid.widget.WidgetUpdater
 ) {
     private var controller: MediaController? = null
     private var currentQueue: List<Song> = emptyList()
@@ -74,11 +75,13 @@ class MusicController @Inject constructor(
         controller?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _playbackState.value = _playbackState.value.copy(isPlaying = isPlaying)
+                widgetUpdater.update(_playbackState.value.currentSong, isPlaying)
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val song = mediaItem?.mediaId?.let(songsByMediaId::get)
                 _playbackState.value = _playbackState.value.copy(currentSong = song)
                 updateProgress()
+                widgetUpdater.update(song, _playbackState.value.isPlaying)
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
                 _playbackState.value = _playbackState.value.copy(shuffleEnabled = shuffleModeEnabled)
